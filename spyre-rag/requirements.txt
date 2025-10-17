@@ -1,0 +1,11 @@
+flask
+langchain
+pymilvus
+langchain_milvus
+cohere
+ollama
+joblib
+scikit-learn
+scipy
+transformers
+openai

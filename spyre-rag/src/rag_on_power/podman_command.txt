@@ -1,2 +1,0 @@
-podman compose -f milvus_standalone_compose_powerpc.yml up -d
-podman compose -f milvus_standalone_compose_powerpc.yml down

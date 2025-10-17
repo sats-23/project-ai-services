@@ -8,7 +8,6 @@ from db_utils import MilvusVectorStore, VectorStoreManager
 from misc_utils import get_model_endpoints
 from backend_utils import search_and_answer_backend, search_only
 from llm_utils import query_vllm_stream
-from ui_rag_agri import detect_en_hi
 
 MILVUS_HOST = "localhost"
 MILVUS_PORT = "19530"
@@ -99,7 +98,7 @@ def generate():
             use_reranker,
             max_tokens,
             stop_words=stop_words,
-            language=detect_en_hi(prompt),
+            language="en",
             vectorstore=vectorstore,
             deployment_type=DEPLOYMENT_TYPE,
             stream=False,
