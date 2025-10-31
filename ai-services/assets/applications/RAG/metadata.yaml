@@ -2,5 +2,5 @@ name: RAG
 version: 0.0.1
 description: "Description of RAG purpose"
 podTemplateExecutions:
-  - [milvus.yaml.tmpl, pod1.yaml.tmpl]
-  - [pod3.yaml.tmpl]
+  - [milvus.yaml.tmpl, vllm-server.yaml.tmpl]
+  - [chat-bot.yaml.tmpl, docling.yaml.tmpl]
