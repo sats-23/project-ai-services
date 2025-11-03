@@ -4,6 +4,8 @@ metadata:
   name: "{{ .AppName }}--vllm-server"
   labels:
     ai-services.io/application: "{{ .AppName }}"
+  annotations:
+    ai-services.io/instruct--sypre-cards: "4"
 spec:
   volumes:
     - name: dshm
@@ -31,14 +33,16 @@ spec:
           value: "1"
         - name: VLLM_SPYRE_REQUIRE_PRECOMPILED_DECODERS
           value: "1"
-        - name: VLLM_AIU_PCIE_IDS
-          value: "0381:50:00.0 0382:60:00.0 0383:70:00.0 0384:80:00.0"
         - name: VLLM_SPYRE_USE_CB
           value: "1"
         - name: MAX_MODEL_LEN
           value: "32768"
         - name: MAX_BATCH_SIZE
           value: "32"
+        {{- range $k, $v := index .env "instruct" }}
+        - name: {{ $k }}
+          value: "{{ $v }}"
+        {{- end }}
       resources:
         requests:
           podman.io/device=/dev/vfio: 4

@@ -24,7 +24,7 @@ func RunPodmanKubePlay(body io.Reader) (*KubePlayOutput, error) {
 	// Run the command
 	err := cmd.Run()
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute podman kube play: %w", err)
+		return nil, fmt.Errorf("failed to execute podman kube play: %w. StdErr: %v", err, cmd.Stderr)
 	}
 
 	//  Extract ALL Pod IDs from the output
