@@ -3,19 +3,19 @@ package cmd
 import (
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"github.com/project-ai-services/ai-services/cmd/ai-services/cmd/application"
 	"github.com/project-ai-services/ai-services/cmd/ai-services/cmd/bootstrap"
-	"github.com/spf13/cobra"
+	"github.com/project-ai-services/ai-services/cmd/ai-services/cmd/version"
 )
-
-var Version = "dev"
 
 // rootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:     "ai-services",
 	Short:   "AI Services CLI",
 	Long:    `A CLI tool for managing AI services infrastructure.`,
-	Version: Version,
+	Version: version.GetVersion(),
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
@@ -31,6 +31,7 @@ func Execute() {
 }
 
 func init() {
+	RootCmd.AddCommand(version.VersionCmd)
 	RootCmd.AddCommand(bootstrap.BootstrapCmd())
 	RootCmd.AddCommand(application.ApplicationCmd)
 }
