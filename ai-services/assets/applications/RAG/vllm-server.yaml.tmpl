@@ -42,9 +42,13 @@ spec:
           value: "32768"
         - name: MAX_BATCH_SIZE
           value: "32"
-        {{- range $k, $v := index .env "instruct" }}
+        {{- /* Check if .env.instruct exists and is a non-empty map */}}
+        {{- with .env.instruct }}
+          {{- /* If it does, '.' (dot) is now scoped to .env.instruct */}}
+          {{- range $k, $v := . }}
         - name: {{ $k }}
           value: "{{ $v }}"
+          {{- end }}
         {{- end }}
       resources:
         requests:

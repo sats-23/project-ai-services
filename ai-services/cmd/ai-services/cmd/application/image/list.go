@@ -1,22 +1,15 @@
 package image
 
 import (
-	"bytes"
-	"errors"
 	"fmt"
-	"strings"
+	"slices"
 
-	v1 "github.com/containers/podman/v5/pkg/k8s.io/api/core/v1"
-	"github.com/project-ai-services/ai-services/internal/pkg/cli/helpers"
+	"github.com/project-ai-services/ai-services/internal/pkg/cli/templates"
+	"github.com/project-ai-services/ai-services/internal/pkg/utils"
 	"github.com/spf13/cobra"
-	"sigs.k8s.io/yaml"
 )
 
 var templateName string
-
-const (
-	applicationTemplatesPath = "applications/"
-)
 
 var listCmd = &cobra.Command{
 	Use:   "list",
@@ -24,7 +17,7 @@ var listCmd = &cobra.Command{
 	Long:  ``,
 	Args:  cobra.MaximumNArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return list(cmd)
+		return list()
 	},
 }
 
@@ -33,62 +26,38 @@ func init() {
 	listCmd.MarkFlagRequired("template")
 }
 
-func list(cmd *cobra.Command) error {
-	// Fetch all the application Template names
-	appTemplateNames, err := helpers.FetchApplicationTemplatesNames()
+func list() error {
+	tp := templates.NewEmbedTemplateProvider(templates.EmbedOptions{})
+	apps, err := tp.ListApplications()
 	if err != nil {
-		return fmt.Errorf("failed to list templates: %w", err)
+		return fmt.Errorf("error listing templates: %w", err)
 	}
-
-	var appTemplateName string
-
-	if index := fetchAppTemplateIndex(appTemplateNames, templateName); index == -1 {
-		return errors.New("provided template name is wrong. Please provide a valid template name")
-	} else {
-		appTemplateName = appTemplateNames[index]
+	if found := slices.Contains(apps, templateName); !found {
+		return fmt.Errorf("provided template name is wrong. Please provide a valid template name")
 	}
-
-	tmpls, err := helpers.LoadAllTemplates(applicationTemplatesPath + appTemplateName)
+	tmpls, err := tp.LoadAllTemplates(templateName)
 	if err != nil {
-		return fmt.Errorf("failed to parse the templates: %w", err)
+		return fmt.Errorf("error loading templates for %s: %w", templateName, err)
 	}
-	// Loop through all pod templates, render and run kube play
-	cmd.Printf("Total Pod Templates to be processed: %d\n", len(tmpls))
-	for name, tmpl := range tmpls {
-		cmd.Printf("Processing template: %s...\n", name)
 
-		params := map[string]any{
-			"AppName": "sample-app",
+	dummyParams := map[string]any{
+		"AppName": "dummy-app",
+	}
+	images := []string{}
+	for _, tmpl := range tmpls {
+		ps, err := tp.LoadPodTemplate(templateName, tmpl.Name(), dummyParams)
+		if err != nil {
+			return fmt.Errorf("error loading pod template: %w", err)
 		}
+		for _, container := range ps.Spec.Containers {
+			images = append(images, container.Image)
+		}
+	}
 
-		var rendered bytes.Buffer
-		if err := tmpl.Execute(&rendered, params); err != nil {
-			return fmt.Errorf("failed to execute template %s: %v", name, err)
-		}
-
-		var podYAML v1.Pod
-		if err := yaml.Unmarshal(rendered.Bytes(), &podYAML); err != nil {
-			return fmt.Errorf("unable to read YAML as Kube Pod: %w", err)
-		}
-		for _, container := range podYAML.Spec.Containers {
-			cmd.Printf("Container image: %s\n", container.Image)
-		}
+	fmt.Printf("Container images for application template '%s' are:\n", templateName)
+	for _, image := range utils.UniqueSlice(images) {
+		fmt.Printf("- %s\n", image)
 	}
 
 	return nil
-
-}
-
-// fetchAppTemplateIndex -> Returns the index of app template if exists, otherwise -1
-func fetchAppTemplateIndex(appTemplateNames []string, templateName string) int {
-	appTemplateIndex := -1
-
-	for index, appTemplateName := range appTemplateNames {
-		if strings.EqualFold(appTemplateName, templateName) {
-			appTemplateIndex = index
-			break
-		}
-	}
-
-	return appTemplateIndex
 }
