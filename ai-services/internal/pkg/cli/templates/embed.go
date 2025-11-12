@@ -100,40 +100,32 @@ func (e *embedTemplateProvider) LoadPodTemplate(app, file string, params any) (*
 	return &spec, nil
 }
 
-// LoadPodTemplate loads and renders a pod template with the dummy parameters
-func (e *embedTemplateProvider) LoadPodTemplateWithDummyParams(app, file, appName string) (*models.PodSpec, error) {
-	dummyParams := map[string]any{
+func (e *embedTemplateProvider) LoadPodTemplateWithValues(app, file, appName string) (*models.PodSpec, error) {
+	valuesPath := fmt.Sprintf("%s/%s/values.yaml", e.root, app)
+	valuesData, err := e.fs.ReadFile(valuesPath)
+	if err != nil {
+		return nil, fmt.Errorf("read values.yaml: %w", err)
+	}
+
+	var values map[string]any
+	if err := yaml.Unmarshal(valuesData, &values); err != nil {
+		return nil, fmt.Errorf("parse values.yaml: %w", err)
+	}
+
+	// Build full params directly
+	params := map[string]any{
+		"Values":          values,
 		"AppName":         appName,
 		"AppTemplateName": "",
 		"Version":         "",
 	}
 
-	path := fmt.Sprintf("%s/%s/templates/%s", e.root, app, file)
-	data, err := e.fs.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("read metadata: %w", err)
-	}
-
-	var rendered bytes.Buffer
-	tmpl, err := template.New("podTemplate").Parse(string(data))
-	if err != nil {
-		return nil, fmt.Errorf("parse template %s: %w", file, err)
-	}
-	if err := tmpl.Execute(&rendered, dummyParams); err != nil {
-		return nil, fmt.Errorf("failed to execute template %s: %v", path, err)
-	}
-
-	var spec models.PodSpec
-	if err := yaml.Unmarshal(rendered.Bytes(), &spec); err != nil {
-		return nil, fmt.Errorf("unable to read YAML as Kube Pod: %w", err)
-	}
-
-	return &spec, nil
+	return e.LoadPodTemplate(app, file, params)
 }
 
 // LoadMetadata loads the metadata for a given application template
-func (e *embedTemplateProvider) LoadMetadata(template string) (*AppMetadata, error) {
-	path := fmt.Sprintf("%s/%s/metadata.yaml", e.root, template)
+func (e *embedTemplateProvider) LoadMetadata(appTemplateName string) (*AppMetadata, error) {
+	path := fmt.Sprintf("%s/%s/metadata.yaml", e.root, appTemplateName)
 	data, err := e.fs.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read metadata: %w", err)

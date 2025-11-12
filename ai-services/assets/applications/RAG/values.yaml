@@ -1,0 +1,24 @@
+ui:
+  port: 3000
+  image: icr.io/ai-services-private/rag-ui:v0.0.3
+
+backend:
+  image: icr.io/ai-services-private/rag:v0.0.4
+
+etcd:
+  image: icr.io/ai-services/etcd:3.6.5
+
+minio:
+  image: icr.io/ai-services-private/minio:RELEASE.2025-10-15T17-29-55Z
+
+milvus:
+  image: icr.io/ppc64le-oss/milvus-ppc64le:v2.5.3
+
+instruct:
+  image: icr.io/ibmaiu_internal/ppc64le/dd2/rhaiis:3.2.5-ci_236
+
+embedding:
+  image: icr.io/ppc64le-oss/vllm-ppc64le:0.9.1
+
+reranker:
+  image: icr.io/ppc64le-oss/vllm-ppc64le:0.9.1

@@ -11,6 +11,7 @@ type AppMetadata struct {
 	Version               string     `yaml:"version,omitempty"`
 	SMTLevel              *int       `yaml:"smtLevel,omitempty"`
 	PodTemplateExecutions [][]string `yaml:"podTemplateExecutions"`
+	CustomArgs            []string   `yaml:"customArgs,omitempty"`
 }
 
 type Vars struct {
@@ -36,8 +37,8 @@ type Template interface {
 	LoadAllTemplates(path string) (map[string]*template.Template, error)
 	// LoadPodTemplate loads and renders a pod template with the given parameters
 	LoadPodTemplate(app, file string, params any) (*models.PodSpec, error)
-	// LoadPodTemplateWithDummyParams loads and renders a pod template with the dummy parameters
-	LoadPodTemplateWithDummyParams(app, file, appName string) (*models.PodSpec, error)
+	// LoadPodTemplateWithValues loads and renders a pod template with values from application
+	LoadPodTemplateWithValues(app, file, appName string) (*models.PodSpec, error)
 	// LoadMetadata loads the metadata for a given application template
 	LoadMetadata(app string) (*AppMetadata, error)
 	// LoadMdFiles loads all md files for a given application
