@@ -21,6 +21,32 @@ import (
 	"github.com/project-ai-services/ai-services/internal/pkg/runtime"
 )
 
+func FetchCustomArgsFromMetadata(appNames []string) (map[string][]string, error) {
+	out := make(map[string][]string)
+
+	for _, appName := range appNames {
+		metadataFilePath := fmt.Sprintf("applications/%s/metadata.yaml", appName)
+
+		meta, err := LoadMetadata(metadataFilePath)
+		if err != nil {
+			// Fails to load metadata, but is a valid application template
+			logger.Logger.Error(fmt.Sprintf("failed to load or parse metadata.yaml for %s: %v", appName, err))
+			out[appName] = []string{}
+			continue
+		}
+
+		// When customArgs is not defined in metadata.yaml
+		if meta.CustomArgs == nil {
+			out[appName] = []string{}
+			continue
+		}
+
+		out[appName] = meta.CustomArgs
+	}
+
+	return out, nil
+}
+
 func FetchApplicationTemplatesNames() ([]string, error) {
 	apps := []string{}
 
@@ -134,9 +160,12 @@ func FetchContainerStartPeriod(runtime runtime.Runtime, containerNameOrId string
 }
 
 type AppMetadata struct {
-	// TODO: Include other variables too
+	Name                  string     `yaml:"name"`
+	Version               string     `yaml:"version"`
+	Description           string     `yaml:"description"`
 	SMTLevel              *int       `yaml:"smtLevel,omitempty"`
 	PodTemplateExecutions [][]string `yaml:"podTemplateExecutions"`
+	CustomArgs            []string   `yaml:"customArgs"`
 }
 
 func LoadMetadata(path string) (*AppMetadata, error) {

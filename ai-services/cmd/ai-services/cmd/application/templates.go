@@ -27,9 +27,25 @@ var templatesCmd = &cobra.Command{
 		// sort appTemplateNames alphabetically
 		sort.Strings(appTemplateNames)
 
+		appTemplateNameswithCustomArgs, err := helpers.FetchCustomArgsFromMetadata(appTemplateNames)
+
+		// sort custom args for each application template
+		for _, name := range appTemplateNames {
+			sort.Strings(appTemplateNameswithCustomArgs[name])
+		}
+
 		cmd.Println("Available Application Templates:")
 		for _, name := range appTemplateNames {
 			cmd.Println("- ", name)
+			values := appTemplateNameswithCustomArgs[name]
+
+			for i, v := range values {
+				if i == len(values)-1 {
+					cmd.Println("   └─ ", v) // last item
+				} else {
+					cmd.Println("   ├─ ", v) // middle items
+				}
+			}
 		}
 		return nil
 	},
