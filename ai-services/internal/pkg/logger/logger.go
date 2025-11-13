@@ -1,42 +1,55 @@
 package logger
 
 import (
-	"os"
+	"flag"
 
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
+	"k8s.io/klog/v2"
 )
 
-var (
-	Logger      *zap.Logger
-	atomicLevel zap.AtomicLevel
-)
-
-func init() {
-	atomicLevel = zap.NewAtomicLevelAt(zap.InfoLevel)
-	consoleEncoder := zapcore.NewConsoleEncoder(zapcore.EncoderConfig{
-		TimeKey:        "",
-		LevelKey:       "",
-		NameKey:        "",
-		CallerKey:      "",
-		MessageKey:     "msg",
-		EncodeLevel:    zapcore.CapitalColorLevelEncoder,
-		EncodeTime:     zapcore.ISO8601TimeEncoder,
-		EncodeDuration: zapcore.StringDurationEncoder,
-	})
-
-	core := zapcore.NewCore(consoleEncoder, zapcore.AddSync(os.Stdout), atomicLevel)
-	Logger = zap.New(core)
+func Init() {
+	klog.InitFlags(nil)
+	_ = flag.Set("alsologtostderr", "true")
+	_ = flag.Set("skip_headers", "true")
+	_ = flag.Set("skip_log_headers", "true")
+	flag.Parse()
 }
 
-func GetLogger() *zap.Logger {
-	return Logger
+func Flush() {
+	klog.Flush()
 }
 
-func SetLogLevel(level zapcore.Level) {
-	atomicLevel.SetLevel(level)
+func Warningln(msg string) {
+	klog.Warningln("WARNING: ", msg)
 }
 
-func GetLogLevel() zapcore.Level {
-	return atomicLevel.Level()
+func Warningf(msg string, args ...interface{}) {
+	klog.Warningf("WARNING: "+msg, args...)
+}
+
+func Errorln(msg string) {
+	klog.Errorln("ERROR: ", msg)
+}
+
+func Errorf(msg string, args ...interface{}) {
+	klog.Errorf("ERROR: "+msg, args...)
+}
+
+func Infoln(msg string, verbose ...int) {
+	v := 0
+	if len(verbose) > 0 {
+		v = verbose[0]
+	}
+	klog.V(klog.Level(v)).Infoln(msg)
+}
+
+func Infof(msg string, args ...interface{}) {
+	v := 0
+	// The last arg is an int, used for verbosity level
+	if len(args) > 0 {
+		if verbosity, ok := args[len(args)-1].(int); ok {
+			v = verbosity
+			args = args[:len(args)-1] // remove verbosity argument
+		}
+	}
+	klog.V(klog.Level(v)).Infof(msg, args...)
 }

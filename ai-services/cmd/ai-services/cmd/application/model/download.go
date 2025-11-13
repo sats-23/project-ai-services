@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/project-ai-services/ai-services/internal/pkg/cli/helpers"
+	"github.com/project-ai-services/ai-services/internal/pkg/logger"
 	"github.com/project-ai-services/ai-services/internal/pkg/vars"
 	"github.com/spf13/cobra"
 )
@@ -31,7 +32,7 @@ func download(cmd *cobra.Command) error {
 	if err != nil {
 		return err
 	}
-	cmd.Println("Downloaded Models in application template", templateName, ":")
+	logger.Infoln("Downloaded Models in application template" + templateName + ":")
 	for _, model := range models {
 		err := helpers.DownloadModel(model, vars.ModelDirectory)
 		if err != nil {

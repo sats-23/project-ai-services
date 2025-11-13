@@ -7,6 +7,7 @@ import (
 	"github.com/containers/podman/v5/pkg/domain/entities/types"
 	"github.com/spf13/cobra"
 
+	"github.com/project-ai-services/ai-services/internal/pkg/logger"
 	"github.com/project-ai-services/ai-services/internal/pkg/runtime/podman"
 )
 
@@ -45,7 +46,7 @@ var psCmd = &cobra.Command{
 		}
 
 		if len(pods) == 0 && applicationName != "" {
-			cmd.Printf("No Pods found for the given application name: %s", applicationName)
+			logger.Infof("No Pods found for the given application name: %s", applicationName)
 			return nil
 		}
 
@@ -67,7 +68,7 @@ var psCmd = &cobra.Command{
 				}
 			}
 
-			cmd.Printf("ApplicationName: %s, PodId: %s, PodName: %s, Status: %s, Exposed: %s\n", fetchPodNameFromLabels(pod.Labels), pod.Id, pod.Name, pod.Status, strings.Join(podPorts, ", "))
+			logger.Infof("ApplicationName: %s, PodId: %s, PodName: %s, Status: %s, Exposed: %s\n", fetchPodNameFromLabels(pod.Labels), pod.Id, pod.Name, pod.Status, strings.Join(podPorts, ", "))
 		}
 		return nil
 	},

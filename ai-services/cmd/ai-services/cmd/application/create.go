@@ -13,12 +13,11 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
 
 	"github.com/project-ai-services/ai-services/cmd/ai-services/cmd/bootstrap"
 	"github.com/project-ai-services/ai-services/internal/pkg/cli/helpers"
 	"github.com/project-ai-services/ai-services/internal/pkg/constants"
-	log "github.com/project-ai-services/ai-services/internal/pkg/logger"
+	"github.com/project-ai-services/ai-services/internal/pkg/logger"
 	"github.com/project-ai-services/ai-services/internal/pkg/runtime"
 	"github.com/project-ai-services/ai-services/internal/pkg/runtime/podman"
 	"github.com/project-ai-services/ai-services/internal/pkg/utils"
@@ -32,7 +31,6 @@ const (
 var (
 	extraContainerReadinessTimeout = 5 * time.Minute
 	envMutex                       sync.Mutex
-	logger                         = log.GetLogger()
 )
 
 // Variables for flags placeholder
@@ -72,28 +70,27 @@ var createCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		appName := args[0]
 
-		// TODO: migrate to logger from cmd.Printf
 		skip := helpers.ParseSkipChecks(skipChecks)
 		if len(skip) > 0 {
-			logger.Warn("⚠️  WARNING: Skipping validation checks", zap.Strings("skipped", skipChecks))
+			logger.Warningf("Skipping validation checks (skipped: %v)\n", skipChecks)
 		}
 
 		// Validate the LPAR before creating the application
-		cmd.Printf("Validating the LPAR environment before creating application '%s'...\n", appName)
+		logger.Infof("Validating the LPAR environment before creating application '%s'...\n", appName)
 		err := bootstrap.RunValidateCmd(skip)
 		if err != nil {
-			return fmt.Errorf("❌ Bootstrap validation failed: %w", err)
+			return fmt.Errorf("Bootstrap validation failed: %w", err)
 		}
 
 		// Configure the LPAR before creating the application
-		cmd.Printf("Configuring the LPAR")
+		logger.Infof("Configuring the LPAR")
 		err = bootstrap.RunConfigureCmd()
 		if err != nil {
-			return fmt.Errorf("❌ Bootstrap configuration failed: %w", err)
+			return fmt.Errorf("Bootstrap configuration failed: %w", err)
 		}
 
 		// Proceed to create application
-		cmd.Printf("Creating application '%s' using template '%s'\n", appName, templateName)
+		logger.Infof("Creating application '%s' using template '%s'\n", appName, templateName)
 
 		// set SMT level to target value, assuming it is running with root privileges (part of validation in bootstrap)
 		err = setSMTLevel()
@@ -159,19 +156,19 @@ var createCmd = &cobra.Command{
 
 		// Download models if flag is set to true(default: true)
 		if !skipModelDownload {
-			cmd.Println("Downloading models as part of application creation...")
+			logger.Infoln("Downloading models as part of application creation...")
 			models, err := helpers.ListModels(appTemplateName)
 			if err != nil {
 				return err
 			}
-			cmd.Println("Downloaded Models in application template", templateName, ":")
+			logger.Infoln("Downloaded Models in application template" + templateName + ":")
 			for _, model := range models {
 				err := helpers.DownloadModel(model, vars.ModelDirectory)
 				if err != nil {
 					return fmt.Errorf("failed to download model: %w", err)
 				}
 			}
-			cmd.Println("Model download completed.")
+			logger.Infoln("Model download completed.")
 		}
 
 		// ---- ! ----
@@ -183,15 +180,15 @@ var createCmd = &cobra.Command{
 		}
 
 		// Loop through all pod templates, render and run kube play
-		cmd.Printf("Total Pod Templates to be processed: %d\n", len(tmpls))
+		logger.Infof("Total Pod Templates to be processed: %d\n", len(tmpls))
 
 		// execute the pod Templates
 		if err := executePodTemplates(runtime, appName, appMetadata, tmpls, applicationPodTemplatesPath, pciAddresses); err != nil {
 			return err
 		}
 
-		cmd.Printf("\n--- Successfully deployed the Application: '%s' ---\n", appName)
-		cmd.Println("-------")
+		logger.Infof("\n--- Successfully deployed the Application: '%s' ---\n", appName)
+		logger.Infoln("-------")
 
 		// print the next steps to be performed at the end of create
 		if err := helpers.PrintNextSteps(runtime, appName, appTemplateName); err != nil {

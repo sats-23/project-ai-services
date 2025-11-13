@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/containers/podman/v5/pkg/domain/entities/types"
+	"github.com/project-ai-services/ai-services/internal/pkg/logger"
 	"github.com/project-ai-services/ai-services/internal/pkg/runtime/podman"
 	"github.com/project-ai-services/ai-services/internal/pkg/utils"
 	"github.com/spf13/cobra"
@@ -64,7 +65,7 @@ func startApplication(cmd *cobra.Command, client *podman.PodmanClient, appName s
 	}
 
 	if len(pods) == 0 {
-		cmd.Printf("No pods found with given application: %s\n", appName)
+		logger.Infof("No pods found with given application: %s\n", appName)
 		return nil
 	}
 
@@ -95,11 +96,11 @@ func startApplication(cmd *cobra.Command, client *podman.PodmanClient, appName s
 
 		// 2. Warn if any provided pod names do not exist
 		if len(notFound) > 0 {
-			cmd.Printf("Warning: The following specified pods were not found and will be skipped: %s\n", strings.Join(notFound, ", "))
+			logger.Warningf("The following specified pods were not found and will be skipped: %s\n", strings.Join(notFound, ", "))
 		}
 
 		if len(podsToStart) == 0 {
-			cmd.Printf("No valid pods found to start for application: %s\n", appName)
+			logger.Infof("No valid pods found to start for application: %s\n", appName)
 			return nil
 		}
 	} else {
@@ -107,17 +108,17 @@ func startApplication(cmd *cobra.Command, client *podman.PodmanClient, appName s
 		podsToStart = pods
 	}
 
-	cmd.Printf("Found %d pods for given applicationName: %s.\n", len(podsToStart), appName)
-	cmd.Println("Below pods will be started:")
+	logger.Infof("Found %d pods for given applicationName: %s.\n", len(podsToStart), appName)
+	logger.Infoln("Below pods will be started:")
 	for _, pod := range podsToStart {
-		cmd.Printf("\t-> %s\n", pod.Name)
+		logger.Infof("\t-> %s\n", pod.Name)
 	}
 
 	printLogs := len(podsToStart) == 1 && !skipLogs
 	if printLogs {
-		cmd.Printf("⚠️  Note: After starting the pod, logs will be displayed. Press Ctrl+C to exit the logs and return to the terminal.\n")
+		logger.Infoln("Note: After starting the pod, logs will be displayed. Press Ctrl+C to exit the logs and return to the terminal.")
 	}
-	cmd.Printf("Are you sure you want to start above pods? (y/N): ")
+	logger.Infof("Are you sure you want to start above pods? (y/N): ")
 
 	confirmStart, err := utils.ConfirmAction()
 	if err != nil {
@@ -125,16 +126,16 @@ func startApplication(cmd *cobra.Command, client *podman.PodmanClient, appName s
 	}
 
 	if !confirmStart {
-		cmd.Printf("Skipping starting of pods\n")
+		logger.Infoln("Skipping starting of pods")
 		return nil
 	}
 
-	cmd.Printf("Proceeding to start pods...\n")
+	logger.Infoln("Proceeding to start pods...")
 
 	// 3. Proceed to start only the valid pods
 	var errors []string
 	for _, pod := range podsToStart {
-		cmd.Printf("Starting the pod: %s\n", pod.Name)
+		logger.Infof("Starting the pod: %s\n", pod.Name)
 		podData, err := client.InspectPod(pod.Name)
 		if err != nil {
 			errMsg := fmt.Sprintf("%s: %v", pod.Name, err)
@@ -143,7 +144,7 @@ func startApplication(cmd *cobra.Command, client *podman.PodmanClient, appName s
 		}
 
 		if podData.State == "Running" {
-			cmd.Printf("Pod %s is already running. Skipping...\n", pod.Name)
+			logger.Infof("Pod %s is already running. Skipping...\n", pod.Name)
 			continue
 		}
 		if err := client.StartPod(pod.Id); err != nil {
@@ -151,7 +152,7 @@ func startApplication(cmd *cobra.Command, client *podman.PodmanClient, appName s
 			errors = append(errors, errMsg)
 			continue
 		}
-		cmd.Printf("Successfully started the pod: %s\n", pod.Name)
+		logger.Infof("Successfully started the pod: %s\n", pod.Name)
 	}
 
 	if len(errors) > 0 {
@@ -159,11 +160,11 @@ func startApplication(cmd *cobra.Command, client *podman.PodmanClient, appName s
 	}
 
 	if printLogs {
-		cmd.Printf("\n--- Following logs for pod: %s ---\n", podsToStart[0].Name)
+		logger.Infof("\n--- Following logs for pod: %s ---\n", podsToStart[0].Name)
 		if err := client.PodLogs(podsToStart[0].Name); err != nil {
 			// Check if error is due to interrupt signal (Ctrl+C)
 			if strings.Contains(err.Error(), "signal: interrupt") || strings.Contains(err.Error(), "context canceled") {
-				cmd.Printf("\nLog following stopped.\n")
+				logger.Infoln("Log following stopped.")
 				return nil
 			}
 			return fmt.Errorf("failed to follow logs for pod %s: %w", podsToStart[0].Name, err)

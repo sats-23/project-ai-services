@@ -1,6 +1,7 @@
 package version
 
 import (
+	"github.com/project-ai-services/ai-services/internal/pkg/logger"
 	"github.com/spf13/cobra"
 )
 
@@ -19,6 +20,6 @@ var VersionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Prints CLI version with more info",
 	Run: func(cmd *cobra.Command, args []string) {
-		cmd.Printf("Version: %s\nGitCommit: %s\nBuildDate: %s\n", Version, GitCommit, BuildDate)
+		logger.Infof("Version: %s\nGitCommit: %s\nBuildDate: %s\n", Version, GitCommit, BuildDate)
 	},
 }

@@ -1,13 +1,17 @@
 package cmd
 
 import (
+	"flag"
 	"os"
+
+	"k8s.io/klog/v2"
 
 	"github.com/spf13/cobra"
 
 	"github.com/project-ai-services/ai-services/cmd/ai-services/cmd/application"
 	"github.com/project-ai-services/ai-services/cmd/ai-services/cmd/bootstrap"
 	"github.com/project-ai-services/ai-services/cmd/ai-services/cmd/version"
+	"github.com/project-ai-services/ai-services/internal/pkg/logger"
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -16,6 +20,10 @@ var RootCmd = &cobra.Command{
 	Short:   "AI Services CLI",
 	Long:    `A CLI tool for managing AI services infrastructure.`,
 	Version: version.GetVersion(),
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		// Ensures logs flush after each command run
+		klog.V(2).Info("Logger initialized (PersistentPreRun)")
+	},
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
@@ -24,6 +32,7 @@ var RootCmd = &cobra.Command{
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
+	defer logger.Flush()
 	err := RootCmd.Execute()
 	if err != nil {
 		os.Exit(1)
@@ -31,6 +40,8 @@ func Execute() {
 }
 
 func init() {
+	logger.Init()
+	RootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 	RootCmd.AddCommand(version.VersionCmd)
 	RootCmd.AddCommand(bootstrap.BootstrapCmd())
 	RootCmd.AddCommand(application.ApplicationCmd)

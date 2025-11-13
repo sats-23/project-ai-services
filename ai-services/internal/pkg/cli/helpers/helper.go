@@ -164,13 +164,13 @@ func ListSpyreCards() ([]string, error) {
 	pci_devices_str := string(out)
 
 	for _, pci_dev := range strings.Split(pci_devices_str, "\n") {
-		logger.Logger.Debug("Spyre card detected")
+		logger.Infoln("Spyre card detected", 1)
 		dev_id := strings.Split(pci_dev, " ")[0]
-		logger.Logger.Sugar().Debug("PCI id: %s", dev_id)
+		logger.Infof("PCI id: %s\n", dev_id, 1)
 		spyre_device_ids_list = append(spyre_device_ids_list, dev_id)
 	}
 
-	logger.Logger.Sugar().Info("List of discovered Spyre cards: ", spyre_device_ids_list)
+	logger.Infoln("List of discovered Spyre cards: "+strings.Join(spyre_device_ids_list, ", "), 1)
 	return spyre_device_ids_list, nil
 }
 
@@ -188,7 +188,7 @@ func FindFreeSpyreCards() ([]string, error) {
 		}
 		f, err := os.Open("/dev/vfio/" + dev_file.Name())
 		if err != nil {
-			logger.Logger.Debug("Device or resource busy, skipping..")
+			logger.Infoln("Device or resource busy, skipping..", 1)
 			continue
 		}
 		f.Close()

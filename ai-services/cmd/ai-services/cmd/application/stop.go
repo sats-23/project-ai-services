@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/containers/podman/v5/pkg/domain/entities/types"
+	"github.com/project-ai-services/ai-services/internal/pkg/logger"
 	"github.com/project-ai-services/ai-services/internal/pkg/runtime/podman"
 	"github.com/project-ai-services/ai-services/internal/pkg/utils"
 	"github.com/spf13/cobra"
@@ -59,7 +60,7 @@ func stopApplication(cmd *cobra.Command, client *podman.PodmanClient, appName st
 	}
 
 	if len(pods) == 0 {
-		cmd.Printf("No pods found with given application: %s\n", appName)
+		logger.Infof("No pods found with given application: %s\n", appName)
 		return nil
 	}
 
@@ -90,11 +91,11 @@ func stopApplication(cmd *cobra.Command, client *podman.PodmanClient, appName st
 
 		// 2. Warn if any provided pod names do not exist
 		if len(notFound) > 0 {
-			cmd.Printf("Warning: The following specified pods were not found and will be skipped: %s\n", strings.Join(notFound, ", "))
+			logger.Warningf("The following specified pods were not found and will be skipped: %s\n", strings.Join(notFound, ", "))
 		}
 
 		if len(podsToStop) == 0 {
-			cmd.Printf("No valid pods found to stop for application: %s\n", appName)
+			logger.Infof("No valid pods found to stop for application: %s\n", appName)
 			return nil
 		}
 	} else {
@@ -102,13 +103,13 @@ func stopApplication(cmd *cobra.Command, client *podman.PodmanClient, appName st
 		podsToStop = pods
 	}
 
-	cmd.Printf("Found %d pods for given applicationName: %s.\n", len(podsToStop), appName)
-	cmd.Println("Below pods will be stopped:")
+	logger.Infof("Found %d pods for given applicationName: %s.\n", len(podsToStop), appName)
+	logger.Infoln("Below pods will be stopped:")
 	for _, pod := range podsToStop {
-		cmd.Printf("\t-> %s\n", pod.Name)
+		logger.Infof("\t-> %s\n", pod.Name)
 	}
 
-	cmd.Printf("Are you sure you want to stop above pods? (y/N): ")
+	logger.Infof("Are you sure you want to stop above pods? (y/N): ")
 
 	confirmStop, err := utils.ConfirmAction()
 	if err != nil {
@@ -116,22 +117,22 @@ func stopApplication(cmd *cobra.Command, client *podman.PodmanClient, appName st
 	}
 
 	if !confirmStop {
-		cmd.Printf("Skipping stopping of pods\n")
+		logger.Infof("Skipping stopping of pods\n")
 		return nil
 	}
 
-	cmd.Printf("Proceeding to stop pods...\n")
+	logger.Infof("Proceeding to stop pods...\n")
 
 	// 3. Proceed to stop only the valid pods
 	var errors []string
 	for _, pod := range podsToStop {
-		cmd.Printf("Stopping the pod: %s\n", pod.Name)
+		logger.Infof("Stopping the pod: %s\n", pod.Name)
 		if err := client.StopPod(pod.Id); err != nil {
 			errMsg := fmt.Sprintf("%s: %v", pod.Name, err)
 			errors = append(errors, errMsg)
 			continue
 		}
-		cmd.Printf("Successfully stopped the pod: %s\n", pod.Name)
+		logger.Infof("Successfully stopped the pod: %s\n", pod.Name)
 	}
 
 	if len(errors) > 0 {

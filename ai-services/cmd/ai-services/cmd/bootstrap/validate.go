@@ -9,13 +9,10 @@ import (
 	"strings"
 
 	"github.com/project-ai-services/ai-services/internal/pkg/cli/helpers"
-	log "github.com/project-ai-services/ai-services/internal/pkg/logger"
+	"github.com/project-ai-services/ai-services/internal/pkg/logger"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-)
-
-var (
-	logger = log.GetLogger()
+	"k8s.io/klog/v2"
 )
 
 // Validation check types
@@ -77,25 +74,23 @@ Available checks to skip:
 		Hidden: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 
-			// TODO: use klog structured logging
 			if verbose {
-				log.SetLogLevel(zap.DebugLevel)
-				logger.Debug("Verbose mode enabled")
+				klog.V(2).Info("Verbose mode enabled")
 			}
 
-			logger.Info("Running bootstrap validation...")
+			logger.Infof("Running bootstrap validation...")
 
 			skip := helpers.ParseSkipChecks(skipChecks)
 			if len(skip) > 0 {
-				logger.Warn("⚠️  WARNING: Skipping validation checks", zap.Strings("skipped", skipChecks))
+				logger.Warningln("Skipping validation checks" + strings.Join(skipChecks, ", "))
 			}
 
 			err := RunValidateCmd(skip)
 			if err != nil {
-				return fmt.Errorf("❌ Bootstrap validation failed: %w", err)
+				return fmt.Errorf("Bootstrap validation failed: %w", err)
 			}
 
-			logger.Info("✅ All validations passed")
+			logger.Infof("All validations passed")
 			return nil
 		},
 	}
@@ -162,9 +157,9 @@ func RunValidateCmd(skip map[string]bool) error {
 	}
 
 	if len(validationErrors) > 0 {
-		logger.Error("❌ Validation failed with errors:")
+		klog.Errorln("Validation failed with errors:")
 		for i, err := range validationErrors {
-			logger.Error(fmt.Sprintf("  %d. %s", i+1, err.Error()))
+			klog.Errorf(fmt.Sprintf("  %d. %s", i+1, err.Error()))
 		}
 		return fmt.Errorf("%d validation check(s) failed", len(validationErrors))
 	}
@@ -175,10 +170,10 @@ func rootCheck() error {
 	euid := os.Geteuid()
 
 	if euid == 0 {
-		logger.Info("✅ Current user is root.")
+		logger.Infof("Current user is root.")
 	} else {
-		logger.Error("❌ Current user is not root.")
-		logger.Debug("Effective User ID", zap.Int("euid", euid))
+		klog.Errorln("Current user is not root.")
+		klog.V(2).Info("Effective User ID", zap.Int("euid", euid))
 		return fmt.Errorf("root privileges are required to run this command")
 	}
 	return nil
@@ -186,7 +181,7 @@ func rootCheck() error {
 
 // validateOS checks if the OS is RHEL and version is 9.6 or higher
 func validateOS() error {
-	logger.Debug("Validating operating system...")
+	klog.V(2).Info("Validating operating system...")
 
 	data, err := os.ReadFile("/etc/os-release")
 	if err != nil {
@@ -200,7 +195,7 @@ func validateOS() error {
 		strings.Contains(osInfo, `ID=rhel`)
 
 	if !isRHEL {
-		return fmt.Errorf("❌ unsupported operating system: only RHEL is supported")
+		return fmt.Errorf("unsupported operating system: only RHEL is supported")
 	}
 
 	// verify if version is 9.6 or higher
@@ -222,16 +217,16 @@ func validateOS() error {
 	}
 
 	if major < 9 || (major == 9 && minor < 6) {
-		return fmt.Errorf("❌ unsupported RHEL version: %s. Minimum required version is 9.6", version)
+		return fmt.Errorf("unsupported RHEL version: %s. Minimum required version is 9.6", version)
 	}
 
-	logger.Info("✅ Operating system is RHEL", zap.String("version", version))
+	logger.Infof("Operating system is RHEL", zap.String("version", version))
 	return nil
 }
 
 // validateRHNRegistration checks if the system is registered with RHN
 func validateRHNRegistration() error {
-	logger.Debug("Validating RHN registration...")
+	klog.V(2).Info("Validating RHN registration...")
 	cmd := exec.Command("dnf", "repolist")
 	output, err := cmd.CombinedOutput()
 
@@ -239,66 +234,66 @@ func validateRHNRegistration() error {
 	// even when the system is registered
 	outputStr := string(output)
 	if strings.Contains(outputStr, "This system is not registered") {
-		return fmt.Errorf("❌ system is not registered with RHN")
+		return fmt.Errorf("system is not registered with RHN")
 	}
 
 	if err != nil {
-		return fmt.Errorf("❌ failed to check registration status: %w", err)
+		return fmt.Errorf("failed to check registration status: %w", err)
 	}
 
-	logger.Info("✅ System is registered with RHN")
+	logger.Infof("System is registered with RHN")
 	return nil
 }
 
 // validatePowerVersion checks if the system is running on IBM POWER11 architecture
 func validatePowerVersion() error {
-	logger.Debug("Validating IBM Power version...")
+	klog.V(2).Info("Validating IBM Power version...")
 
 	if runtime.GOARCH != "ppc64le" {
-		return fmt.Errorf("❌ unsupported architecture: %s. IBM Power architecture (ppc64le) is required", runtime.GOARCH)
+		return fmt.Errorf("unsupported architecture: %s. IBM Power architecture (ppc64le) is required", runtime.GOARCH)
 	}
 
 	data, err := os.ReadFile("/proc/cpuinfo")
 	if err == nil && strings.Contains(strings.ToLower(string(data)), "power11") {
-		logger.Info("✅ System is running on IBM Power11 architecture")
+		logger.Infof("System is running on IBM Power11 architecture")
 		return nil
 	}
 
-	return fmt.Errorf("❌ unsupported IBM Power version: Power11 is required")
+	return fmt.Errorf("unsupported IBM Power version: Power11 is required")
 }
 
 // validateRHAIISLicense checks if a valid RHAIIS license is present
 func validateRHAIISLicense() error {
-	logger.Debug("Validating RHAIIS license...")
+	klog.V(2).Info("Validating RHAIIS license...")
 	return nil
 }
 
 func validateSpyreAttachment() error {
-	logger.Debug("Validating Spyre attachment...")
+	klog.V(2).Info("Validating Spyre attachment...")
 	out, err := exec.Command("lspci").Output()
 	if err != nil {
-		return fmt.Errorf("❌ failed to execute lspci command: %w", err)
+		return fmt.Errorf("failed to execute lspci command: %w", err)
 	}
 
 	if !strings.Contains(string(out), "IBM Spyre Accelerator") {
-		return fmt.Errorf("❌ IBM Spyre Accelerator is not attached to the LPAR")
+		return fmt.Errorf("IBM Spyre Accelerator is not attached to the LPAR")
 	}
 
-	logger.Info("✅ IBM Spyre Accelerator is attached to the LPAR")
+	logger.Infof("IBM Spyre Accelerator is attached to the LPAR")
 	return nil
 }
 
 func validateNumaNode() error {
-	logger.Debug("Validating Numa Node config...")
+	klog.V(2).Info("Validating Numa Node config...")
 	cmd := `lscpu | grep -i "NUMA node(s)"`
 	out, err := exec.Command("bash", "-c", cmd).Output()
 	if err != nil {
-		return fmt.Errorf("❌ failed to execute lscpu command: %w", err)
+		return fmt.Errorf("failed to execute lscpu command: %w", err)
 	}
 
 	fields := strings.Fields(string(out))
 	if len(fields) == 0 {
-		return fmt.Errorf("❌ Failed to get NUMA node fields")
+		return fmt.Errorf("Failed to get NUMA node fields")
 	}
 
 	numaVal := fields[len(fields)-1]
@@ -308,9 +303,9 @@ func validateNumaNode() error {
 	}
 
 	if numaCount != 1 {
-		return fmt.Errorf("❌ Numa node on LPAR is %d, please set NUMA node to 1.", numaCount)
+		return fmt.Errorf("Numa node on LPAR is %d, please set NUMA node to 1.", numaCount)
 	}
 
-	logger.Info("✅ NUMA node alignment on LPAR: 1")
+	logger.Infof("NUMA node alignment on LPAR: 1")
 	return nil
 }

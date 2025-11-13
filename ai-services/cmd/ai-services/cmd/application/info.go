@@ -5,8 +5,10 @@ import (
 
 	"github.com/containers/podman/v5/pkg/domain/entities/types"
 	"github.com/spf13/cobra"
+	"k8s.io/klog/v2"
 
 	"github.com/project-ai-services/ai-services/internal/pkg/cli/helpers"
+	"github.com/project-ai-services/ai-services/internal/pkg/logger"
 	"github.com/project-ai-services/ai-services/internal/pkg/runtime/podman"
 	"github.com/project-ai-services/ai-services/internal/pkg/vars"
 )
@@ -48,25 +50,25 @@ var infoCmd = &cobra.Command{
 
 		// If there exists no pod for given application name, then fail saying application for given application name doesnt exist
 		if len(pods) == 0 {
-			cmd.Printf("Application: '%s' does not exist.", applicationName)
+			logger.Infof("Application: '%s' does not exist.", applicationName)
 			return nil
 		}
 
-		cmd.Println("Application Name: ", applicationName)
+		logger.Infoln("Application Name: " + applicationName)
 
 		// Step2: From one of the pod, fetch and print the template and version label values
 
 		appTemplate := pods[0].Labels[string(vars.TemplateLabel)]
-		cmd.Println("Application Template: ", appTemplate)
+		logger.Infoln("Application Template: " + appTemplate)
 
 		version := pods[0].Labels[string(vars.VersionLabel)]
-		cmd.Println("Version: ", version)
+		logger.Infoln("Version: " + version)
 
 		// Step3: Read and print the info.md file
 
 		if err := helpers.PrintInfo(runtimeClient, applicationName, appTemplate); err != nil {
 			// not failing if overall info command, if we cannot display Info
-			fmt.Printf("failed to display info: %v\n", err)
+			klog.Errorf("failed to display info: %v\n", err)
 			return nil
 		}
 

@@ -3,6 +3,7 @@ package model
 import (
 	"fmt"
 
+	"github.com/project-ai-services/ai-services/internal/pkg/logger"
 	"github.com/spf13/cobra"
 )
 
@@ -28,9 +29,9 @@ func list(cmd *cobra.Command) error {
 	if err != nil {
 		return fmt.Errorf("failed to list the models, err: %w", err)
 	}
-	cmd.Println("Models in application template", templateName, ":")
+	logger.Infoln("Models in application template" + templateName + ":")
 	for _, model := range models {
-		cmd.Println("-", model)
+		logger.Infoln("-" + model)
 	}
 
 	return nil

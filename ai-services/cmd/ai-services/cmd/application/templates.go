@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/project-ai-services/ai-services/internal/pkg/cli/helpers"
+	"github.com/project-ai-services/ai-services/internal/pkg/logger"
 )
 
 var templatesCmd = &cobra.Command{
@@ -27,9 +28,9 @@ var templatesCmd = &cobra.Command{
 		// sort appTemplateNames alphabetically
 		sort.Strings(appTemplateNames)
 
-		cmd.Println("Available Application Templates:")
+		logger.Infoln("Available Application Templates:")
 		for _, name := range appTemplateNames {
-			cmd.Println("- ", name)
+			logger.Infoln("- " + name)
 		}
 		return nil
 	},
