@@ -5,6 +5,7 @@ import (
 	"sort"
 
 	"github.com/spf13/cobra"
+	"k8s.io/klog/v2"
 
 	"github.com/project-ai-services/ai-services/internal/pkg/cli/helpers"
 )
@@ -27,9 +28,9 @@ var templatesCmd = &cobra.Command{
 		// sort appTemplateNames alphabetically
 		sort.Strings(appTemplateNames)
 
-		cmd.Println("Available Application Templates:")
+		klog.Infoln("Available Application Templates:")
 		for _, name := range appTemplateNames {
-			cmd.Println("- ", name)
+			klog.Infoln("- ", name)
 		}
 		return nil
 	},

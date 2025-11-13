@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"k8s.io/klog/v2"
 )
 
 var templateName string
@@ -28,9 +29,9 @@ func list(cmd *cobra.Command) error {
 	if err != nil {
 		return fmt.Errorf("failed to list the models, err: %w", err)
 	}
-	cmd.Println("Models in application template", templateName, ":")
+	klog.Infoln("Models in application template", templateName, ":")
 	for _, model := range models {
-		cmd.Println("-", model)
+		klog.Infoln("-", model)
 	}
 
 	return nil

@@ -8,6 +8,7 @@ import (
 
 	"github.com/project-ai-services/ai-services/internal/pkg/validators"
 	"github.com/spf13/cobra"
+	"k8s.io/klog/v2"
 )
 
 // validateCmd represents the validate subcommand of bootstrap
@@ -19,14 +20,14 @@ func configureCmd() *cobra.Command {
 		Hidden: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 
-			logger.Info("Running bootstrap configuration...")
+			klog.Infoln("Running bootstrap configuration...")
 
 			err := RunConfigureCmd()
 			if err != nil {
-				return fmt.Errorf("❌ Bootstrap configuration failed: %w", err)
+				return fmt.Errorf("Bootstrap configuration failed: %w", err)
 			}
 
-			logger.Info("✅ Bootstrap configuration completed successfully.")
+			klog.Infof("Bootstrap configuration completed successfully.")
 			return nil
 		},
 	}
@@ -42,7 +43,7 @@ func RunConfigureCmd() error {
 	// 1.1 Install Podman
 	if _, err := validators.Podman(); err != nil {
 		// setup podman socket and enable service
-		logger.Info("Podman not installed. Installing Podman...")
+		klog.Infof("Podman not installed. Installing Podman...")
 		if err := installPodman(); err != nil {
 			return err
 		}
@@ -50,18 +51,18 @@ func RunConfigureCmd() error {
 
 	// 1.2 Configure Podman
 	if err := validators.PodmanHealthCheck(); err != nil {
-		logger.Info("Podman not configured. Configuring Podman...")
+		klog.Infof("Podman not configured. Configuring Podman...")
 		if err := setupPodman(); err != nil {
 			return err
 		}
 	} else {
-		logger.Info("✅ Podman already configured")
+		klog.Infof("Podman already configured")
 	}
 	// 2. Spyre cards – run servicereport tool to validate and repair spyre configurations
 	if err := runServiceReport(); err != nil {
 		return err
 	} else {
-		logger.Info("✅ Spyre cards configuration validated successfully.")
+		klog.Infof("Spyre cards configuration validated successfully.")
 	}
 
 	return nil
@@ -91,7 +92,7 @@ func runServiceReport() error {
 	if err != nil {
 		return fmt.Errorf("failed to run servicereport tool to validate Spyre cards configuration: %v, output: %s", err, string(out))
 	}
-	logger.Sugar().Infof("ServiceReport output: %v", string(out))
+	klog.Infof("ServiceReport output: %v", string(out))
 	return nil
 }
 
@@ -101,7 +102,7 @@ func installPodman() error {
 	if err != nil {
 		return fmt.Errorf("failed to install podman: %v, output: %s", err, string(out))
 	}
-	logger.Info("✅ Podman installed successfully.")
+	klog.Infof("Podman installed successfully.")
 	return nil
 }
 
@@ -116,14 +117,14 @@ func setupPodman() error {
 		return fmt.Errorf("failed to enable podman socket: %w", err)
 	}
 
-	logger.Debug("Waiting for podman socket to be ready...")
+	klog.V(2).Info("Waiting for podman socket to be ready...")
 	time.Sleep(2 * time.Second) // wait for socket to be ready
 
 	if err := validators.PodmanHealthCheck(); err != nil {
 		return fmt.Errorf("podman health check failed after configuration: %w", err)
 	}
 
-	logger.Info("✅ Podman configured successfully.")
+	klog.Infof("Podman configured successfully.")
 	return nil
 }
 

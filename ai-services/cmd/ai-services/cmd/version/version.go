@@ -2,6 +2,7 @@ package version
 
 import (
 	"github.com/spf13/cobra"
+	"k8s.io/klog/v2"
 )
 
 var (
@@ -19,6 +20,6 @@ var VersionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Prints CLI version with more info",
 	Run: func(cmd *cobra.Command, args []string) {
-		cmd.Printf("Version: %s\nGitCommit: %s\nBuildDate: %s\n", Version, GitCommit, BuildDate)
+		klog.Infof("Version: %s\nGitCommit: %s\nBuildDate: %s\n", Version, GitCommit, BuildDate)
 	},
 }
