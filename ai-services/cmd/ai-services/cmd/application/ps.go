@@ -5,6 +5,9 @@ import (
 	"strings"
 
 	"github.com/containers/podman/v5/pkg/domain/entities/types"
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/jedib0t/go-pretty/v6/text"
+	"github.com/project-ai-services/ai-services/internal/pkg/cli/helpers"
 	"github.com/spf13/cobra"
 
 	"github.com/project-ai-services/ai-services/internal/pkg/runtime/podman"
@@ -49,7 +52,15 @@ var psCmd = &cobra.Command{
 			return nil
 		}
 
-		// TODO: Implement Tabular column with headers and pods list
+		p := helpers.NewTableWriter(cmd.OutOrStdout())
+		defer p.CloseTableWriter()
+
+		t := p.GetTableWriter()
+		t.AppendHeader(table.Row{"Application Name", "Pod ID", "Pod Name", "Status", "Exposed"})
+		t.SetColumnConfigs([]table.ColumnConfig{
+			{Number: 4, Align: text.AlignCenter},
+		})
+
 		for _, pod := range pods {
 			podPorts := []string{}
 			pInfo, err := runtimeClient.InspectPod(pod.Id)
@@ -65,9 +76,11 @@ var psCmd = &cobra.Command{
 				for _, port := range ports {
 					podPorts = append(podPorts, port.HostPort)
 				}
+				if len(podPorts) == 0 {
+					podPorts = append(podPorts, "none")
+				}
 			}
-
-			cmd.Printf("ApplicationName: %s, PodId: %s, PodName: %s, Status: %s, Exposed: %s\n", fetchPodNameFromLabels(pod.Labels), pod.Id, pod.Name, pod.Status, strings.Join(podPorts, ", "))
+			t.AppendRow(table.Row{fetchPodNameFromLabels(pod.Labels), pod.Id, pod.Name, pod.Status, strings.Join(podPorts, ", ")})
 		}
 		return nil
 	},
