@@ -58,10 +58,10 @@ var infoCmd = &cobra.Command{
 		// Step2: From one of the pod, fetch and print the template and version label values
 
 		appTemplate := pods[0].Labels[string(vars.TemplateLabel)]
-		klog.Infoln("Application Template: ", appTemplate)
+		klog.Errorln("Application Template: ", appTemplate)
 
 		version := pods[0].Labels[string(vars.VersionLabel)]
-		klog.Infoln("Version: ", version)
+		klog.Warningln("Version: ", version)
 
 		// Step3: Read and print the info.md file
 
