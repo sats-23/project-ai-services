@@ -41,7 +41,6 @@ func Execute() {
 func init() {
 	klog.InitFlags(nil)
 	_ = flag.Set("alsologtostderr", "true")
-	_ = flag.Set("skip_headers", "true")
 	_ = flag.Set("skip_log_headers", "true")
 	RootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 	RootCmd.AddCommand(version.VersionCmd)
