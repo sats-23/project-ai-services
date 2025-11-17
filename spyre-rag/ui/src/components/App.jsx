@@ -32,32 +32,29 @@ const config = {
 function App() {
   const [chatInstance, setChatInstance] = useState();
 
-  function onBeforeRender(instance) {
+  function onAfterRender(instance) {
 
     instance.updateMainHeaderTitle("DocuAssistant");
     instance.on({ type: BusEventType.FEEDBACK, handler: feedbackHandler });
     setChatInstance(instance);
 
-    // Delay welcome message to avoid triggering initial loading indicator
-    setTimeout(() => {
-      instance.messaging.addMessage({
-        output: {
-          generic: [
-            {
-              response_type: "text",
-              text: `Hi, I'm your assistant! You can ask me anything related to your documents`,
-            },
-          ],
-        },
-        message_options: {
-          response_user_profile: {
-            id: "assistant",
-            nickname: "DocuAgent",
-            user_type: UserType.BOT,
+    instance.messaging.addMessage({
+      output: {
+        generic: [
+          {
+            response_type: "text",
+            text: `Hi, I'm your assistant! You can ask me anything related to your documents`,
           },
+        ],
+      },
+      message_options: {
+        response_user_profile: {
+          id: "assistant",
+          nickname: "DocuAgent",
+          user_type: UserType.BOT,
         },
-      });
-    }, 300);
+      },
+    });
   }
 
   function feedbackHandler(event) {
@@ -85,7 +82,7 @@ function App() {
                   <ChatCustomElement
                     config={config}
                     className="fullScreen"
-                    onBeforeRender={onBeforeRender}
+                    onAfterRender={onAfterRender}
                     renderUserDefinedResponse={renderUserDefinedResponse}
                   />
                 </div>
