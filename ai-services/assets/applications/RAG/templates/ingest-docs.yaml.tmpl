@@ -11,7 +11,7 @@ metadata:
 spec:
   containers:
     - name: ingest-docs
-      image: icr.io/ai-services-private/rag:v0.0.3
+      image: icr.io/ai-services-private/rag:v0.0.4
       command:
         - "/var/venv/bin/python"
         - "-m"
@@ -42,10 +42,10 @@ spec:
         - name: MILVUS_COLLECTION_NAME
           value: "{{ .AppName  }}"
       volumeMounts:
-        - mountPath: /var/docs:Z
+        - mountPath: /var/docs:z
           name: docs
           readOnly: true
-        - mountPath: /var/cache:Z
+        - mountPath: /var/cache:z
           name: cache
   restartPolicy: OnFailure
   volumes:
