@@ -77,6 +77,10 @@ var psCmd = &cobra.Command{
 		}
 
 		for _, pod := range pods {
+			if fetchPodNameFromLabels(pod.Labels) == "" {
+				//Skip pods which are not linked to ai-services
+				continue
+			}
 			podPorts := []string{}
 			pInfo, err := runtimeClient.InspectPod(pod.Id)
 			if err != nil {
