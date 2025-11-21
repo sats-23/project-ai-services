@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"slices"
+	"sort"
 	"strings"
 	"text/template"
 
@@ -49,6 +50,51 @@ func (e *embedTemplateProvider) ListApplications() ([]string, error) {
 	}
 
 	return apps, nil
+}
+
+// ListApplicationTemplateValues lists all available application template values files
+func (e *embedTemplateProvider) ListApplicationTemplateValues(apps []string) (map[string][]string, error) {
+	out := make(map[string][]string)
+	for _, app := range apps {
+		valuesPath := fmt.Sprintf("%s/%s/values.yaml", e.root, app)
+		valuesData, err := e.fs.ReadFile(valuesPath)
+		if err != nil {
+			return nil, fmt.Errorf("read values.yaml: %w", err)
+		}
+		m := make(map[string]interface{})
+		if err := yaml.Unmarshal(valuesData, &m); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal: %w", err)
+		}
+		var keys []string
+		flatten("", m, &keys)
+		sort.Strings(keys)
+		out[app] = keys
+	}
+	return out, nil
+}
+
+func flatten(prefix string, node interface{}, out *[]string) {
+	switch v := node.(type) {
+
+	case map[string]interface{}:
+		for key, val := range v {
+			var newPrefix string
+			if prefix == "" {
+				newPrefix = key
+			} else {
+				newPrefix = prefix + "." + key
+			}
+			flatten(newPrefix, val, out)
+		}
+
+	case []interface{}:
+		for i, val := range v {
+			flatten(fmt.Sprintf("%s[%d]", prefix, i), val, out)
+		}
+
+	default:
+		*out = append(*out, prefix)
+	}
 }
 
 // LoadAllTemplates loads all templates for a given application

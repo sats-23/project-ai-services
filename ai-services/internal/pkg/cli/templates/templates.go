@@ -33,6 +33,8 @@ type HostVar struct {
 type Template interface {
 	// ListApplications lists all available application templates
 	ListApplications() ([]string, error)
+	// ListApplicationTemplateValues lists all available application template values files
+	ListApplicationTemplateValues(apps []string) (map[string][]string, error)
 	// LoadAllTemplates loads all templates for a given application
 	LoadAllTemplates(path string) (map[string]*template.Template, error)
 	// LoadPodTemplate loads and renders a pod template with the given parameters

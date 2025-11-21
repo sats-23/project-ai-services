@@ -30,9 +30,16 @@ var templatesCmd = &cobra.Command{
 		// sort appTemplateNames alphabetically
 		sort.Strings(appTemplateNames)
 
+		appTemplatesWithVals, err := tp.ListApplicationTemplateValues(appTemplateNames)
+
 		logger.Infoln("Available Application Templates:")
 		for _, name := range appTemplateNames {
 			logger.Infoln("- " + name)
+
+			vals := appTemplatesWithVals[name]
+			for _, v := range vals {
+				logger.Infoln("    " + v)
+			}
 		}
 		return nil
 	},
