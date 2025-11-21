@@ -33,6 +33,7 @@ func ListImages(template, appName string) ([]string, error) {
 		if err != nil {
 			return nil, fmt.Errorf("error loading pod template: %w", err)
 		}
+		fmt.Printf("DEBUG PS %+v\n", ps)
 		for _, container := range ps.Spec.Containers {
 			images = append(images, container.Image)
 		}

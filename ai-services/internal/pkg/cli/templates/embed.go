@@ -114,11 +114,14 @@ func (e *embedTemplateProvider) LoadPodTemplate(app, file string, params any) (*
 	if err := tmpl.Execute(&rendered, params); err != nil {
 		return nil, fmt.Errorf("failed to execute template %s: %v", path, err)
 	}
+	fmt.Printf("PARAM TYPE: %T\n", params)
+	fmt.Printf("Rendered Template:\n%s\n", rendered.Bytes())
 
 	var spec models.PodSpec
 	if err := yaml.Unmarshal(rendered.Bytes(), &spec); err != nil {
 		return nil, fmt.Errorf("unable to read YAML as Kube Pod: %w", err)
 	}
+	fmt.Printf("DEBUGGGGGG SPEC %+v\n", spec)
 
 	return &spec, nil
 }
