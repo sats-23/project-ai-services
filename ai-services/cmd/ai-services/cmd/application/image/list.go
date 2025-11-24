@@ -28,7 +28,7 @@ func list(templateName string) error {
 
 	logger.Infof("Container images for application template '%s' are:\n", templateName)
 	for _, image := range images {
-		logger.Infof("- %s\n", image)
+		logger.Infoln("- " + image)
 	}
 
 	return nil

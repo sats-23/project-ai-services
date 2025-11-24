@@ -52,10 +52,10 @@ Usage:
   ai-services [command]
 
 Available Commands:
-  application Deploy and monitor the applications
-  completion  Generate the autocompletion script for the specified shell
-  help        Help about any command
-  version     Prints CLI version with more info
+  application   Deploy and monitor the applications
+  completion    Generate the autocompletion script for the specified shell
+  help          Help about any command
+  version       Prints CLI version with more info
 
 Flags:
   -h, --help      help for ai-services

@@ -32,7 +32,7 @@ func validateCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "validate",
-		Short: "validates the environment",
+		Short: "Validates the environment",
 		Long: `Validate that all prerequisites and configurations are correct for bootstrapping.
 
 This command performs comprehensive validation checks including:

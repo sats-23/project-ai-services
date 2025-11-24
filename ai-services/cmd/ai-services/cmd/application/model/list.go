@@ -33,7 +33,7 @@ func list(cmd *cobra.Command) error {
 	}
 	logger.Infoln("Models in application template " + templateName + ":")
 	for _, model := range models {
-		logger.Infoln("-" + model)
+		logger.Infoln("- " + model)
 	}
 
 	return nil

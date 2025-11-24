@@ -277,10 +277,38 @@ func init() {
 		"Skip specific validation checks (comma-separated: root,rhel,rhn,power,rhaiis,numa)")
 	createCmd.Flags().StringVarP(&templateName, "template", "t", "", "Template name to use (required)")
 	_ = createCmd.MarkFlagRequired("template")
-	createCmd.Flags().BoolVar(&skipModelDownload, "skip-model-download", false, "Set to true to skip model download during application creation. This assumes local models are already available at /var/lib/ai-services/models/ and is particularly beneficial for air-gapped networks with limited internet access. If not set correctly (e.g., set to true when models are missing, or left false in an air-gapped environment), the create command may fail.")
 	// Add a flag for skipping image download
-	createCmd.Flags().BoolVar(&skipImageDownload, "skip-image-download", false, "Set to true to skip container image pull/download during application creation. This assumes required container images are already available locally. If not set correctly (e.g., set to true when images are missing), the create command may fail.")
-	createCmd.Flags().StringSliceVar(&rawArgParams, "params", []string{}, "Parameters required to configure the application. Takes Comma-separated key=value pairs. Values Supported: UI_PORT=8000")
+	createCmd.Flags().BoolVar(
+		&skipImageDownload,
+		"skip-image-download",
+		false,
+		"Skip container image pull/download during application creation\n\n"+
+			"Use this only if the required container images already exist locally\n"+
+			"Recommended for air-gapped or pre-provisioned environments\n\n"+
+			"Warning:\n"+
+			"- If set to true and images are missing → command will fail\n"+
+			"- If left false in air-gapped environments → pull/download attempt will fail\n",
+	)
+	createCmd.Flags().BoolVar(
+		&skipModelDownload,
+		"skip-model-download",
+		false,
+		"Skip model download during application creation\n\n"+
+			"Use this if local models already exist at /var/lib/ai-services/models/\n"+
+			"Recommended for air-gapped networks\n\n"+
+			"Warning:\n"+
+			"- If set to true and models are missing → command will fail\n"+
+			"- If left false in air-gapped environments → download attempt will fail\n",
+	)
+	createCmd.Flags().StringSliceVar(
+		&rawArgParams,
+		"params",
+		[]string{},
+		"Parameters required to configure the application\n\n"+
+			"Format:\n"+
+			"- Comma-separated key=value pairs\n"+
+			"- Example: UI_PORT=8000\n",
+	)
 }
 
 func getSMTLevel(output string) (int, error) {

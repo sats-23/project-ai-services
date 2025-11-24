@@ -18,8 +18,8 @@ var (
 
 var startCmd = &cobra.Command{
 	Use:   "start [name]",
-	Short: "starts the application",
-	Long: `starts the application based on the application name
+	Short: "Starts the application",
+	Long: `Starts the application based on the application name
 Arguments
 - [name]: Application name (Required)
 

@@ -17,8 +17,8 @@ var (
 
 var stopCmd = &cobra.Command{
 	Use:   "stop [name]",
-	Short: "stops the running application",
-	Long: `stops the running application based on the application name
+	Short: "Stops the running application",
+	Long: `Stops the running application based on the application name
 		Arguments
 		- [name]: Application name (Required)
 		
