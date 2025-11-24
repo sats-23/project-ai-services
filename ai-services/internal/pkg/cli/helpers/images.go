@@ -29,7 +29,7 @@ func ListImages(template, appName string) ([]string, error) {
 	}
 
 	for _, tmpl := range tmpls {
-		ps, err := tp.LoadPodTemplateWithValues(template, tmpl.Name(), appName, nil)
+		ps, err := tp.LoadPodTemplateWithValues(template, tmpl.Name(), appName, nil, nil)
 		if err != nil {
 			return nil, fmt.Errorf("error loading pod template: %w", err)
 		}

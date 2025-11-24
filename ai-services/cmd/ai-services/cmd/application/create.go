@@ -45,8 +45,8 @@ var (
 	skipImageDownload bool
 	skipChecks        []string
 	rawArgParams      []string
-
-	argParams map[string]string
+	argParams         map[string]string
+	valuesFiles       []string
 )
 
 var createCmd = &cobra.Command{
@@ -64,6 +64,13 @@ var createCmd = &cobra.Command{
 			argParams, err = utils.ParseKeyValues(rawArgParams)
 			if err != nil {
 				return fmt.Errorf("error validating params flag: %v", err)
+			}
+		}
+
+		// validate values files
+		for _, vf := range valuesFiles {
+			if !utils.FileExists(vf) {
+				return fmt.Errorf("values file '%s' does not exist", vf)
 			}
 		}
 
@@ -300,14 +307,31 @@ func init() {
 			"- If set to true and models are missing → command will fail\n"+
 			"- If left false in air-gapped environments → download attempt will fail\n",
 	)
+	createCmd.Flags().StringArrayVarP(
+		&valuesFiles,
+		"values",
+		"f",
+		[]string{},
+		"Specify values.yaml files to override default template values\n\n"+
+			"Usage:\n"+
+			"- Can be provided multiple times\n"+
+			"- Example: --values custom1.yaml --values custom2.yaml\n"+
+			"- Or shorthand: -f custom1.yaml -f custom2.yaml\n\n"+
+			"Notes:\n"+
+			"- Files are applied in the order provided\n"+
+			"- Later files override earlier ones\n",
+	)
 	createCmd.Flags().StringSliceVar(
 		&rawArgParams,
 		"params",
 		[]string{},
-		"Parameters required to configure the application\n\n"+
+		"Inline parameters to configure the application\n\n"+
 			"Format:\n"+
 			"- Comma-separated key=value pairs\n"+
-			"- Example: UI_PORT=8000\n",
+			"- Example: --params UI_PORT=8000\n\n"+
+			"Precedence:\n"+
+			"- When both --values and --params are provided,\n"+
+			"  parameters from --params override values from --values\n",
 	)
 }
 
@@ -429,7 +453,7 @@ func verifyPodTemplateExists(tmpls map[string]*template.Template, appMetadata *t
 
 func executePodTemplates(runtime runtime.Runtime, tp templates.Template, appName string, appMetadata *templates.AppMetadata,
 	tmpls map[string]*template.Template, pciAddresses []string, existingPods []string) error {
-	values, err := tp.LoadValues(templateName, argParams)
+	values, err := tp.LoadValues(templateName, valuesFiles, argParams)
 	if err != nil {
 		return fmt.Errorf("failed to load params for application: %w", err)
 	}
@@ -632,7 +656,7 @@ func fetchSpyreCardsFromPodAnnotations(annotations map[string]string) (int, map[
 }
 
 func fetchPodSpec(tp templates.Template, appTemplateName, podTemplateFileName, appName string) (*models.PodSpec, error) {
-	podSpec, err := tp.LoadPodTemplateWithValues(appTemplateName, podTemplateFileName, appName, argParams)
+	podSpec, err := tp.LoadPodTemplateWithValues(appTemplateName, podTemplateFileName, appName, valuesFiles, argParams)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load pod Template: '%s' for appTemplate: '%s' with error: %w", podTemplateFileName, appTemplateName, err)
 	}

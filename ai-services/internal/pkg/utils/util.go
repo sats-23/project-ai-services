@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"maps"
 	"net"
+	"os"
 	"strings"
 
+	"github.com/project-ai-services/ai-services/internal/pkg/logger"
 	"go.yaml.in/yaml/v3"
 )
 
@@ -85,6 +87,18 @@ func ParseKeyValues(pairs []string) (map[string]string, error) {
 	}
 
 	return out, nil
+}
+
+func FileExists(path string) bool {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true
+	}
+	if os.IsNotExist(err) {
+		return false
+	}
+	logger.Errorf("Error checking file existence: %v\n", err)
+	return false
 }
 
 func GetHostIP() (string, error) {

@@ -5,6 +5,7 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
+	"os"
 	"slices"
 	"strings"
 	"text/template"
@@ -123,8 +124,8 @@ func (e *embedTemplateProvider) LoadPodTemplate(app, file string, params any) (*
 	return &spec, nil
 }
 
-func (e *embedTemplateProvider) LoadPodTemplateWithValues(app, file, appName string, overrides map[string]string) (*models.PodSpec, error) {
-	values, err := e.LoadValues(app, overrides)
+func (e *embedTemplateProvider) LoadPodTemplateWithValues(app, file, appName string, valuesFileOverrides []string, cliOverrides map[string]string) (*models.PodSpec, error) {
+	values, err := e.LoadValues(app, valuesFileOverrides, cliOverrides)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load params for application: %w", err)
 	}
@@ -138,17 +139,35 @@ func (e *embedTemplateProvider) LoadPodTemplateWithValues(app, file, appName str
 	return e.LoadPodTemplate(app, file, params)
 }
 
-func (e *embedTemplateProvider) LoadValues(app string, overrides map[string]string) (map[string]interface{}, error) {
+func (e *embedTemplateProvider) LoadValues(app string, valuesFileOverrides []string, cliOverrides map[string]string) (map[string]interface{}, error) {
+	// Load the default values.yaml
 	valuesPath := fmt.Sprintf("%s/%s/values.yaml", e.root, app)
 	valuesData, err := e.fs.ReadFile(valuesPath)
 	if err != nil {
-		return nil, fmt.Errorf("read values.yaml: %w", err)
+		return nil, fmt.Errorf("failed to read values.yaml: %w", err)
 	}
 	values := map[string]interface{}{}
 	if err := yaml.Unmarshal(valuesData, &values); err != nil {
-		return nil, fmt.Errorf("parse values.yaml: %w", err)
+		return nil, fmt.Errorf("failed to parse values.yaml: %w", err)
 	}
-	for key, val := range overrides {
+
+	// Load user provided file overrides
+	for _, overridePath := range valuesFileOverrides {
+		overrideData, err := os.ReadFile(overridePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read override file %s: %w", overridePath, err)
+		}
+		overrideValues := map[string]interface{}{}
+		if err := yaml.Unmarshal(overrideData, &overrideValues); err != nil {
+			return nil, fmt.Errorf("failed to parse override file %s: %w", overridePath, err)
+		}
+		for key, val := range overrideValues {
+			utils.SetNestedValue(values, key, val)
+		}
+	}
+
+	// Load user provided CLI overides
+	for key, val := range cliOverrides {
 		utils.SetNestedValue(values, key, val)
 	}
 	return values, nil
