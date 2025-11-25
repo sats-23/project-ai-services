@@ -30,9 +30,13 @@ func isOutputWide() bool {
 
 var psCmd = &cobra.Command{
 	Use:   "ps [name]",
-	Short: "Lists all the running applications",
-	Long:  `Retrieves information about all the running applications if no name is provided`,
-	Args:  cobra.MaximumNArgs(1),
+	Short: "Lists all or specified running application(s)",
+	Long: `Retrieves information about all the running applications if no name is provided
+Lists information about a specific application if the name is provided
+Arguments
+  [name]: Application name (optional)
+`,
+	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Once precheck passes, silence usage for any *later* internal errors.
 		cmd.SilenceUsage = true

@@ -24,7 +24,7 @@ var downloadCmd = &cobra.Command{
 func init() {
 	downloadCmd.Flags().StringVarP(&templateName, "template", "t", "", "Application template name(Required)")
 	_ = downloadCmd.MarkFlagRequired("template")
-	downloadCmd.Flags().StringVar(&vars.ToolImage, "tool-image", vars.ToolImage, "Tool image to use for downloading the model(only for the development purpose)")
+	downloadCmd.Flags().StringVar(&vars.ToolImage, "tool-image", vars.ToolImage, "Tool container image used for downloading the model (for development purposes only)")
 	_ = downloadCmd.Flags().MarkHidden("tool-image")
 	downloadCmd.Flags().StringVar(&vars.ModelDirectory, "dir", vars.ModelDirectory, "Directory to download the model files")
 }

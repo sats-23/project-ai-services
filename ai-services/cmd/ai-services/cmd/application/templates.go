@@ -12,8 +12,8 @@ import (
 
 var templatesCmd = &cobra.Command{
 	Use:   "templates",
-	Short: "Lists the offered application templates",
-	Long:  `Retrieves information about the offered application templates`,
+	Short: "Lists the offered application templates and their supported parameters",
+	Long:  `Retrieves information about the offered application templates and their supported parameters`,
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		// Once precheck passes, silence usage for any *later* internal errors.
 		cmd.SilenceUsage = true

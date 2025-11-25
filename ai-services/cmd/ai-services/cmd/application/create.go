@@ -282,7 +282,7 @@ func downloadImagesForTemplate(runtime runtime.Runtime, templateName, appName st
 func init() {
 	createCmd.Flags().StringSliceVar(&skipChecks, "skip-validation", []string{},
 		"Skip specific validation checks (comma-separated: root,rhel,rhn,power,rhaiis,numa)")
-	createCmd.Flags().StringVarP(&templateName, "template", "t", "", "Template name to use (required)")
+	createCmd.Flags().StringVarP(&templateName, "template", "t", "", "Application template to use (required)")
 	_ = createCmd.MarkFlagRequired("template")
 	// Add a flag for skipping image download
 	createCmd.Flags().BoolVar(
@@ -325,13 +325,13 @@ func init() {
 		&rawArgParams,
 		"params",
 		[]string{},
-		"Inline parameters to configure the application\n\n"+
+		"Inline parameters to configure the application.\n\n"+
 			"Format:\n"+
 			"- Comma-separated key=value pairs\n"+
-			"- Example: --params UI_PORT=8000\n\n"+
+			"- Example: --params key1=value1,key2=value2\n\n"+
+			"- Use \"ai-services application templates\" to view the list of supported parameters\n\n"+
 			"Precedence:\n"+
-			"- When both --values and --params are provided,\n"+
-			"  parameters from --params override values from --values\n",
+			"- When both --values and --params are provided, --params overrides --values\n",
 	)
 }
 

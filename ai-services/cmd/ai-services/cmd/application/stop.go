@@ -18,15 +18,11 @@ var (
 var stopCmd = &cobra.Command{
 	Use:   "stop [name]",
 	Short: "Stops the running application",
-	Long: `Stops the running application based on the application name
-		Arguments
-		- [name]: Application name (Required)
-		
-		Flags
-		- [pod]: Pod name (Optional)
-					  Can be specified multiple times: --pod=pod1 --pod=pod2
-                      Or comma-separated: --pod=pod1,pod2	
-	`,
+	Long: `Stops a running application by name.
+
+Arguments
+  [name]: Application name (required)
+`,
 	Args: cobra.ExactArgs(1),
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		var err error
@@ -53,7 +49,7 @@ var stopCmd = &cobra.Command{
 }
 
 func init() {
-	stopCmd.Flags().StringSlice("pod", []string{}, "Specific pod name(s) to stop (optional)")
+	stopCmd.Flags().StringSlice("pod", []string{}, "Specific pod name(s) to stop (optional)\nCan be specified multiple times: --pod pod1 --pod pod2\nOr comma-separated: --pod pod1,pod2")
 }
 
 // stopApplication stops all pods associated with the given application name

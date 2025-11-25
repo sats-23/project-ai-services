@@ -18,20 +18,14 @@ var (
 
 var startCmd = &cobra.Command{
 	Use:   "start [name]",
-	Short: "Starts the application",
-	Long: `Starts the application based on the application name
+	Short: "Start an application",
+	Long: `Starts an application by name.
+
 Arguments
-- [name]: Application name (Required)
+  [name]: Application name (required)
 
-Flags
-- [pod]: Pod name (Optional)
-Can be specified multiple times: --pod=pod1 --pod=pod2
-Or comma-separated: --pod=pod1,pod2	
-
-Note that the logs are streamed only when a single pod is specified and only after it has started
-Usage example:
-ai-services application start app-name --pod=pod1
-	`,
+Note: Logs are streamed only when a single pod is specified, and only after the pod has started.
+`,
 	Args: cobra.ExactArgs(1),
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		var err error
@@ -58,7 +52,7 @@ ai-services application start app-name --pod=pod1
 }
 
 func init() {
-	startCmd.Flags().StringSlice("pod", []string{}, "Specific pod name(s) to start (optional)")
+	startCmd.Flags().StringSlice("pod", []string{}, "Specific pod name(s) to start (optional)\nCan be specified multiple times: --pod pod1 --pod pod2\nOr comma-separated: --pod pod1,pod2")
 	startCmd.Flags().BoolVar(&skipLogs, "skip-logs", false, "Skip displaying logs after starting the pod")
 }
 

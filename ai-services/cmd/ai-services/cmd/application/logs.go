@@ -15,13 +15,8 @@ var (
 
 var logsCmd = &cobra.Command{
 	Use:   "logs",
-	Short: "Shows application pod logs",
-	Long: `Show application pod logs based on pod name		
-Flags
-- [pod]: Pod name (Required)
-- [containter]: Container name (Optional)
-Specify container name or ID to show logs of a specific container
-	`,
+	Short: "Show application pod logs",
+	Long:  `Displays logs from an application pod`,
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		if podName == "" {
 			return fmt.Errorf("pod name must be specified using --pod flag")

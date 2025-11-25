@@ -14,11 +14,11 @@ import (
 
 var deleteCmd = &cobra.Command{
 	Use:   "delete [name]",
-	Short: "Deletes the running application",
-	Long: `Deletes the running application based on the application name
-		Arguments
-		- [name]: Application name (Required)
-	`,
+	Short: "Delete an application",
+	Long: `Deletes an application and all associated resources.
+
+Arguments
+  [name]: Application name (required)`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		applicationName := args[0]
