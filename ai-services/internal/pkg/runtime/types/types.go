@@ -2,6 +2,28 @@ package types
 
 import "time"
 
+// RuntimeType represents the type of container runtime.
+type RuntimeType string
+
+const (
+	RuntimeTypePodman RuntimeType = "podman"
+)
+
+// String returns the string representation of RuntimeType.
+func (r RuntimeType) String() string {
+	return string(r)
+}
+
+// Valid checks if the runtime type is valid.
+func (r RuntimeType) Valid() bool {
+	switch r {
+	case RuntimeTypePodman:
+		return true
+	default:
+		return false
+	}
+}
+
 type Pod struct {
 	ID               string
 	Name             string
