@@ -2,6 +2,7 @@ apiVersion: machineconfiguration.openshift.io/v1
 kind: MachineConfig
 metadata:
   labels:
+    kubernetes.io/arch: ppc64le
     machineconfiguration.openshift.io/role: spyre
   name: 50-spyre-device-plugin-selinux-minimal
 spec:
