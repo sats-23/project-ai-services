@@ -3,6 +3,7 @@ package openshift
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/project-ai-services/ai-services/internal/pkg/application/types"
 	"github.com/project-ai-services/ai-services/internal/pkg/helm"
@@ -12,7 +13,7 @@ import (
 )
 
 // Delete removes an application and its associated resources.
-func (o *OpenshiftApplication) Delete(opts types.DeleteOptions) error {
+func (o *OpenshiftApplication) Delete(ctx context.Context, opts types.DeleteOptions) error {
 	app := opts.Name
 	namespace := app
 
@@ -48,13 +49,17 @@ func (o *OpenshiftApplication) Delete(opts types.DeleteOptions) error {
 
 	logger.Infoln("Proceeding with deletion...")
 
-	ctx := context.Background()
+	timeout := opts.Timeout
+	if timeout <= 0 {
+		timeout = 5 * time.Minute
+	}
+
 	s := spinner.New("Deleting application '" + app + "'...")
 
 	s.Start(ctx)
 
 	// Perform helm uninstall
-	err = helmClient.Uninstall(app, nil)
+	err = helmClient.Uninstall(app, &helm.UninstallOpts{Timeout: timeout})
 	if err != nil {
 		s.Fail("failed to delete application")
 
