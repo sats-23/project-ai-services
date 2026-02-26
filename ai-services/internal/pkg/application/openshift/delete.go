@@ -8,7 +8,6 @@ import (
 	"github.com/project-ai-services/ai-services/internal/pkg/application/types"
 	"github.com/project-ai-services/ai-services/internal/pkg/helm"
 	"github.com/project-ai-services/ai-services/internal/pkg/logger"
-	runtimeOpenshift "github.com/project-ai-services/ai-services/internal/pkg/runtime/openshift"
 	"github.com/project-ai-services/ai-services/internal/pkg/spinner"
 	"github.com/project-ai-services/ai-services/internal/pkg/utils"
 )
@@ -64,12 +63,8 @@ func (o *OpenshiftApplication) Delete(ctx context.Context, opts types.DeleteOpti
 
 	if !opts.SkipCleanup {
 		logger.Infoln("Cleaning up Persistent Volume Claims...", 2)
-		oc, ok := o.runtime.(*runtimeOpenshift.OpenshiftClient)
-		if !ok {
-			return fmt.Errorf("unsupported runtime type")
-		}
 
-		if err := oc.DeletePVCs(app); err != nil {
+		if err := o.runtime.DeletePVCs(app); err != nil {
 			return fmt.Errorf("failed to cleanup PVCs: %w", err)
 		}
 	}
