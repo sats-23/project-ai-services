@@ -306,9 +306,8 @@ func (kc *OpenshiftClient) ListRoutes() ([]types.Route, error) {
 
 // DeletePVCs deletes all PVCs matching the given application label.
 func (kc *OpenshiftClient) DeletePVCs(appLabel string) error {
-	labelSelector := fmt.Sprintf("ai-services.io/application=%s", appLabel)
 	pvcs, err := kc.KubeClient.CoreV1().PersistentVolumeClaims(kc.Namespace).List(kc.Ctx, metav1.ListOptions{
-		LabelSelector: labelSelector,
+		LabelSelector: appLabel,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to list PVCs for cleanup: %w", err)
