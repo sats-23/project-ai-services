@@ -321,7 +321,7 @@ func (kc *OpenshiftClient) DeletePVCs(appLabel string) error {
 			continue
 		}
 
-		logger.Infof("Deleted PVC '%s'\n", pvc.Name, 2)
+		logger.Infof("Deleted PVC '%s'\n", pvc.Name, logger.VerbosityLevelDebug)
 	}
 
 	return nil
