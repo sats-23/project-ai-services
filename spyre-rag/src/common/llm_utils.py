@@ -1,7 +1,6 @@
 import logging
 import requests
 import time
-import threading
 import json
 from requests.adapters import HTTPAdapter
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -162,13 +161,11 @@ def query_vllm_non_stream(question, documents, llm_endpoint, llm_model, stop_wor
         response = SESSION.post(f"{llm_endpoint}/v1/chat/completions", json=payload, headers=headers, stream=False)
         request_time = time.time() - start_time
         perf_stat_dict["inference_time"] = request_time
-        
+        response.raise_for_status()
         response_json = response.json()
         if 'usage' in response_json:
-            perf_stat_dict["output_token_cnt"] = response_json['usage'].get('completion_tokens', 0)
-            perf_stat_dict["input_token_cnt"] = response_json['usage'].get('prompt_tokens', 0)
-        
-        response.raise_for_status()
+            perf_stat_dict["completion_tokens"] = response_json['usage'].get('completion_tokens', 0)
+            perf_stat_dict["prompt_tokens"] = response_json['usage'].get('prompt_tokens', 0)
     except requests.exceptions.RequestException as e:
         error_details = str(e)
         if e.response is not None:
@@ -178,7 +175,7 @@ def query_vllm_non_stream(question, documents, llm_endpoint, llm_model, stop_wor
     except Exception as e:
         logger.error(f"Error calling vLLM API: {e}")
         return {"error": str(e)}
-    return response.json()
+    return response_json
 
 def query_vllm_stream(question, documents, llm_endpoint, llm_model, stop_words, max_new_tokens, temperature, perf_stat_dict):
     headers, payload = query_vllm_payload(question, documents, llm_endpoint, llm_model, stop_words, max_new_tokens, temperature, True )
@@ -206,8 +203,8 @@ def query_vllm_stream(question, documents, llm_endpoint, llm_model, stop_words, 
                     
                     # If this is a usage chunk (common in final chunk of OpenAI streams)
                     if 'usage' in chunk and chunk['usage'] is not None:
-                        perf_stat_dict["output_token_cnt"] = chunk['usage'].get('completion_tokens', 0)
-                        perf_stat_dict["input_token_cnt"] = chunk['usage'].get('prompt_tokens', 0)
+                        perf_stat_dict["completion_tokens"] = chunk['usage'].get('completion_tokens', 0)
+                        perf_stat_dict["prompt_tokens"] = chunk['usage'].get('prompt_tokens', 0)
                     
                     # Only record latency for actual token chunks (choices)
                     if 'choices' in chunk and len(chunk['choices']) > 0:
