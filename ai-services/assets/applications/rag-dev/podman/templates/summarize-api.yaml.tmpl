@@ -7,7 +7,7 @@ metadata:
     ai-services.io/template: "{{ .AppTemplateName }}"
     ai-services.io/version: "{{ .Version }}"
   annotations:
-    ai-services.io/ports: "{{ or .Values.summarize.port "5001" }}:5001"
+    ai-services.io/ports: "{{ or .Values.summarize.port "6000" }}:6000"
 spec:
   containers:
     - name: summarize-api
@@ -15,10 +15,19 @@ spec:
       command:
         - "/var/venv/bin/python"
         - "-m"
-        - "summarize.app"
+        - "uvicorn"
+        - "summarize.app:app"
+        - "--host"
+        - "0.0.0.0"
+        - "--port"
+        - "6000"
+        - "--loop"
+        - "uvloop"
+        - "--http"
+        - "httptools"
       env:
         - name: PORT
-          value: "5001"
+          value: "6000"
         - name: LLM_ENDPOINT
           value: "http://{{ .AppName  }}--vllm-server:8000"
         - name: LLM_MODEL
@@ -26,12 +35,12 @@ spec:
         - name: LOG_LEVEL
           value: "{{ .Values.summarize.log_level}}"
       ports:
-        - containerPort: 5001
+        - containerPort: 6000
           protocol: TCP
       livenessProbe:
         httpGet:
           path: /health
-          port: 5001
+          port: 6000
         initialDelaySeconds: 10
         periodSeconds: 30
         timeoutSeconds: 5
