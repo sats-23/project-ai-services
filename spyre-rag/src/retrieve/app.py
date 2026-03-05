@@ -187,12 +187,20 @@ async def chat_completion(req: ChatCompletionRequest):
         return StreamingResponse(stream_docs_not_found(), media_type="text/event-stream")
 
     if concurrency_limiter.locked():
-        raise HTTPException(status_code=429, detail="Server busy. Try again shortly.")
+        if req.stream:
+            async def stream_server_busy():
+                message = "Server busy. Try again shortly."
+                yield f"data: {json.dumps({'choices': [{'delta': {'content': message}}]})}\n\n"
+            return StreamingResponse(stream_server_busy(), media_type="text/event-stream")
+        else:
+            raise HTTPException(status_code=429, detail="Server busy. Try again shortly.")
     await concurrency_limiter.acquire()
 
     try:
+        release_required = True
         if req.stream:
             vllm_stream = query_vllm_stream(query, docs, llm_endpoint, llm_model, req.stop, req.max_tokens, req.temperature, perf_stat_dict)
+            release_required = False
             return StreamingResponse(locked_stream(vllm_stream, perf_stat_dict), media_type="text/event-stream")
         else:
             vllm_non_stream = query_vllm_non_stream(query, docs, llm_endpoint, llm_model, req.stop, req.max_tokens, req.temperature, perf_stat_dict)
@@ -200,9 +208,11 @@ async def chat_completion(req: ChatCompletionRequest):
             perf_registry.add_metric(perf_stat_dict)
             # release semaphore lock because its non-stream request
             concurrency_limiter.release()
+            release_required = False
             return vllm_non_stream
     except Exception as e:
-        concurrency_limiter.release()
+        if release_required:
+            concurrency_limiter.release()
         raise HTTPException(status_code=500, detail=repr(e))
 
 @app.get(
