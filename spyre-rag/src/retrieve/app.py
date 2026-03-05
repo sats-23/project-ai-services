@@ -1,6 +1,8 @@
 import os
 import logging
+import asyncio
 from fastapi import FastAPI, Request, HTTPException
+from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 import json
@@ -36,6 +38,9 @@ reranker_model_dict = {}
 settings = get_settings()
 concurrency_limiter = BoundedSemaphore(settings.max_concurrent_requests)
 
+# Setting 32 to fully utilse the vLLM's Max Batch Size
+POOL_SIZE = 32
+
 def initialize_models():
     global emb_model_dict, llm_model_dict, reranker_model_dict
     emb_model_dict, llm_model_dict, reranker_model_dict = get_model_endpoints()
@@ -51,10 +56,20 @@ async def lifespan(app):
     create_llm_session(pool_maxsize=POOL_SIZE)
     yield
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    lifespan=lifespan,
+    title="AI-Services Chatbot API",
+    description="RAG-based chatbot API with document retrieval, reranking, and LLM-powered responses.",
+    version="1.0.0"
+)
 
-# Setting 32 to fully utilse the vLLM's Max Batch Size
-POOL_SIZE = 32
+@app.get("/", include_in_schema=False)
+def swagger_root():
+    """Expose Swagger UI at the root path (/)"""
+    return get_swagger_ui_html(
+        openapi_url="/openapi.json",
+        title="AI-Services Chatbot API - Swagger UI",
+    )
 
 def limit_concurrency(f):
     @wraps(f)
@@ -95,7 +110,8 @@ async def get_reference_docs(req: ReferenceRequest):
         reranker_model = reranker_model_dict['reranker_model']
         reranker_endpoint = reranker_model_dict['reranker_endpoint']
 
-        docs, perf_stat_dict = search_only(
+        docs, perf_stat_dict = await asyncio.to_thread(
+            search_only,
             req.prompt,
             emb_model, emb_endpoint, emb_max_tokens,
             reranker_model,
@@ -124,7 +140,7 @@ async def list_models():
     logging.debug("List models..")
     try:
         llm_endpoint = llm_model_dict['llm_endpoint']
-        return query_vllm_models(llm_endpoint)
+        return await asyncio.to_thread(query_vllm_models, llm_endpoint)
     except Exception as e:
         raise HTTPException(status_code=500, detail=repr(e))
 
@@ -166,7 +182,8 @@ async def chat_completion(req: ChatCompletionRequest):
         reranker_model = reranker_model_dict['reranker_model']
         reranker_endpoint = reranker_model_dict['reranker_endpoint']
         
-        docs, perf_stat_dict = search_only(
+        docs, perf_stat_dict = await asyncio.to_thread(
+            search_only,
             query,
             emb_model, emb_endpoint, emb_max_tokens,
             reranker_model,
@@ -187,22 +204,36 @@ async def chat_completion(req: ChatCompletionRequest):
         return StreamingResponse(stream_docs_not_found(), media_type="text/event-stream")
 
     if concurrency_limiter.locked():
-        raise HTTPException(status_code=429, detail="Server busy. Try again shortly.")
+        if req.stream:
+            async def stream_server_busy():
+                message = "Server busy. Try again shortly."
+                yield f"data: {json.dumps({'choices': [{'delta': {'content': message}}]})}\n\n"
+            return StreamingResponse(stream_server_busy(), media_type="text/event-stream")
+        else:
+            raise HTTPException(status_code=429, detail="Server busy. Try again shortly.")
     await concurrency_limiter.acquire()
 
     try:
+        release_required = True
         if req.stream:
-            vllm_stream = query_vllm_stream(query, docs, llm_endpoint, llm_model, req.stop, req.max_tokens, req.temperature, perf_stat_dict)
+            vllm_stream = await asyncio.to_thread(
+                query_vllm_stream, query, docs, llm_endpoint, llm_model, req.stop, req.max_tokens, req.temperature, perf_stat_dict
+            )
+            release_required = False
             return StreamingResponse(locked_stream(vllm_stream, perf_stat_dict), media_type="text/event-stream")
         else:
-            vllm_non_stream = query_vllm_non_stream(query, docs, llm_endpoint, llm_model, req.stop, req.max_tokens, req.temperature, perf_stat_dict)
+            vllm_non_stream = await asyncio.to_thread(
+                query_vllm_non_stream, query, docs, llm_endpoint, llm_model, req.stop, req.max_tokens, req.temperature, perf_stat_dict
+            )
             # Store metrics in registry for non-stream
             perf_registry.add_metric(perf_stat_dict)
             # release semaphore lock because its non-stream request
             concurrency_limiter.release()
+            release_required = False
             return vllm_non_stream
     except Exception as e:
-        concurrency_limiter.release()
+        if release_required:
+            concurrency_limiter.release()
         raise HTTPException(status_code=500, detail=repr(e))
 
 @app.get(
@@ -215,7 +246,9 @@ async def db_status():
         emb_model = emb_model_dict['emb_model']
         emb_endpoint = emb_model_dict['emb_endpoint']
         emb_max_tokens = emb_model_dict['max_tokens']
-        status = vectorstore.check_db_populated(emb_model, emb_endpoint, emb_max_tokens)
+        status = await asyncio.to_thread(
+            vectorstore.check_db_populated, emb_model, emb_endpoint, emb_max_tokens
+        )
         if status==True:
             return {"ready": True}
         else:
