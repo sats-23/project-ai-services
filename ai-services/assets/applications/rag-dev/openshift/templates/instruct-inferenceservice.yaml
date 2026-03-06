@@ -33,6 +33,6 @@ spec:
           ibm.com/spyre_pf: "4"
         requests:
           ibm.com/spyre_pf: "4"
-      runtime: spyre
+      runtime: vllm-spyre-ppc64le-runtime
       storageUri: {{ .Values.instruct.storageUri }}
 

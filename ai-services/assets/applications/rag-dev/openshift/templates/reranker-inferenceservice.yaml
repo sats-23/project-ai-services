@@ -21,8 +21,7 @@ spec:
       modelFormat:
         name: vLLM
       resources: {}
-      runtime: cpu
+      runtime: vllm-cpu-runtime
       storageUri: {{ .Values.reranker.storageUri }}
       args:
       - --served-model-name=BAAI/bge-reranker-v2-m3
-      image: {{ .Values.reranker.image }}
