@@ -21,7 +21,7 @@ spec:
       modelFormat:
         name: vLLM
       resources: {}
-      runtime: vllm-cpu-runtime
+      runtime: cpu-temp
       storageUri: {{ .Values.embedding.storageUri }}
       args:
       - --served-model-name=ibm-granite/granite-embedding-278m-multilingual
