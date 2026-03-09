@@ -198,10 +198,17 @@ async def chat_completion(req: ChatCompletionRequest):
         raise HTTPException(status_code=500, detail=repr(e))
 
     if not docs:
-        async def stream_docs_not_found():
-            message = "No documents found in the knowledge base for this query."
-            yield f"data: {json.dumps({'choices': [{'delta': {'content': message}}]})}\n\n"
-        return StreamingResponse(stream_docs_not_found(), media_type="text/event-stream")
+        message = "No documents found in the knowledge base for this query."
+        if req.stream:
+            async def stream_docs_not_found():
+                yield f"data: {json.dumps({'choices': [{'delta': {'content': message}}]})}\n\n"
+            return StreamingResponse(stream_docs_not_found(), media_type="text/event-stream")
+        else:
+            return JSONResponse(content={
+                "choices": [{
+                    "message": {"content": message}
+                }]
+            })
 
     if concurrency_limiter.locked():
         if req.stream:
@@ -242,11 +249,8 @@ async def chat_completion(req: ChatCompletionRequest):
 )
 async def db_status():
     try:
-        emb_model = emb_model_dict['emb_model']
-        emb_endpoint = emb_model_dict['emb_endpoint']
-        emb_max_tokens = emb_model_dict['max_tokens']
         status = await asyncio.to_thread(
-            vectorstore.check_db_populated, emb_model, emb_endpoint, emb_max_tokens
+            vectorstore.check_db_populated
         )
         if status==True:
             return {"ready": True}

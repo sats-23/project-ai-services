@@ -6,15 +6,13 @@ import shutil
 from typing import List, Optional
 from contextlib import asynccontextmanager
 import uvicorn
+
 from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks, Query, status
-from fastapi.openapi.docs import get_swagger_ui_html
 from common.misc_utils import get_logger, set_log_level, has_allowed_extension
 import digitize.digitize_utils as dg_util
 from digitize import types
 from digitize.errors import *
 from digitize.config import *
-from digitize.ingest import ingest
-from digitize.status import StatusManager
 
 log_level = logging.INFO
 level = os.getenv("LOG_LEVEL", "").removeprefix("--").lower()
@@ -26,7 +24,8 @@ if level != "":
 
 set_log_level(log_level)
 
-
+from digitize.ingest import ingest
+from digitize.status import StatusManager
 
 # Semaphores for concurrency limiting
 digitization_semaphore = asyncio.BoundedSemaphore(2)
@@ -46,19 +45,7 @@ async def lifespan(app: FastAPI):
     logger.info("Application shutting down...")
 
 
-app = FastAPI(
-    title="AI-Services Digitize Documents API",
-    description="Document digitization and ingestion service for converting PDFs and text files into structured formats.",
-    version="1.0.0",
-    lifespan=lifespan
-)
-
-@app.get("/", include_in_schema=False)
-def swagger_root():
-    return get_swagger_ui_html(
-        openapi_url="/openapi.json",
-        title="AI-Services Digitize Documents API - Swagger UI",
-    )
+app = FastAPI(title="Digitize Documents Service", lifespan=lifespan)
 
 async def digitize_documents(job_id: str, filenames: List[str], output_format: types.OutputFormat):
     try:
