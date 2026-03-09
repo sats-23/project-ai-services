@@ -214,12 +214,11 @@ async def chat_completion(req: ChatCompletionRequest):
     await concurrency_limiter.acquire()
 
     try:
-        release_required = True
         if req.stream:
             vllm_stream = await asyncio.to_thread(
                 query_vllm_stream, query, docs, llm_endpoint, llm_model, req.stop, req.max_tokens, req.temperature, perf_stat_dict
             )
-            release_required = False
+            # For streaming, release is handled in locked_stream's finally block
             return StreamingResponse(locked_stream(vllm_stream, perf_stat_dict), media_type="text/event-stream")
         else:
             vllm_non_stream = await asyncio.to_thread(
@@ -227,14 +226,14 @@ async def chat_completion(req: ChatCompletionRequest):
             )
             # Store metrics in registry for non-stream
             perf_registry.add_metric(perf_stat_dict)
-            # release semaphore lock because its non-stream request
-            concurrency_limiter.release()
-            release_required = False
             return vllm_non_stream
     except Exception as e:
-        if release_required:
-            concurrency_limiter.release()
         raise HTTPException(status_code=500, detail=repr(e))
+    finally:
+        # Release semaphore for non-streaming requests
+        # For streaming requests, release is handled in locked_stream's finally block
+        if not req.stream:
+            concurrency_limiter.release()
 
 @app.get(
     "/db-status",
