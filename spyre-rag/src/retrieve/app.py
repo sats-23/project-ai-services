@@ -4,7 +4,6 @@ import asyncio
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel
 import json
 from contextlib import asynccontextmanager
 from asyncio import BoundedSemaphore
@@ -15,6 +14,15 @@ from common.misc_utils import get_model_endpoints, set_log_level
 from common.settings import get_settings
 from common.perf_utils import perf_registry
 from retrieve.backend_utils import search_only
+from retrieve.response_utils import (
+    ReferenceRequest,
+    ReferenceResponse,
+    ChatCompletionRequest,
+    ChatCompletionResponse,
+    DBStatusResponse,
+    HealthResponse,
+    ModelsResponse,
+)
 import uvicorn
 from starlette.concurrency import iterate_in_threadpool
 
@@ -83,26 +91,13 @@ def limit_concurrency(f):
             concurrency_limiter.release()
     return wrapper
 
-class ReferenceRequest(BaseModel):
-    prompt: str
-
-class Message(BaseModel):
-    content: str
-
-class ChatCompletionRequest(BaseModel):
-    messages: list[Message]
-    max_tokens: int = get_settings().llm_max_tokens
-    temperature: float = get_settings().temperature
-    stop: list[str] | None = None
-    stream: bool = False
-
-
 @app.post(
     "/reference",
+    response_model=ReferenceResponse,
     summary="Retrieve reference documents",
     description="Search the vector store using the prompt, rerank results, and return relevant document chunks with performance metrics."
 )
-async def get_reference_docs(req: ReferenceRequest):
+async def get_reference_docs(req: ReferenceRequest) -> ReferenceResponse:
     try:
         emb_model = emb_model_dict['emb_model']
         emb_endpoint = emb_model_dict['emb_endpoint']
@@ -128,11 +123,12 @@ async def get_reference_docs(req: ReferenceRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=repr(e))
     
-    return {"documents": docs, "perf_metrics": perf_stat_dict}
+    return ReferenceResponse(documents=docs, perf_metrics=perf_stat_dict)
 
 
 @app.get(
     "/v1/models",
+    response_model=ModelsResponse,
     summary="List LLM models",
     description="List available models from the configured vLLM endpoint."
 )
@@ -151,6 +147,7 @@ async def list_models():
     description="Return collected performance metrics for recent chat completion calls."
 )
 def get_perf_metrics():
+    """Returns performance metrics as a dictionary"""
     return perf_registry.get_metrics()
 
 async def locked_stream(stream_g, perf_stat_dict):
@@ -164,10 +161,11 @@ async def locked_stream(stream_g, perf_stat_dict):
 
 @app.post(
     "/v1/chat/completions",
+    response_model=ChatCompletionResponse,
     summary="Chat with RAG",
-    description="Generate chat completions grounded in retrieved documents."
+    description="Generate chat completions grounded in retrieved documents. Returns streaming response if stream=true, otherwise returns structured JSON."
 )
-async def chat_completion(req: ChatCompletionRequest):
+async def chat_completion(req: ChatCompletionRequest) -> ChatCompletionResponse | StreamingResponse:
     if not req.messages:
         raise HTTPException(status_code=400, detail="messages can't be empty")
 
@@ -244,25 +242,32 @@ async def chat_completion(req: ChatCompletionRequest):
 
 @app.get(
     "/db-status",
+    response_model=DBStatusResponse,
     summary="Vector DB status",
     description="Check whether the vector store is initialized and populated."
 )
-async def db_status():
+async def db_status() -> DBStatusResponse:
     try:
         status = await asyncio.to_thread(
             vectorstore.check_db_populated
         )
         if status==True:
-            return {"ready": True}
+            return DBStatusResponse(ready=True)
         else:
-            return JSONResponse(content={"ready": False, "message": "No data ingested"}, status_code=200)
+            return DBStatusResponse(ready=False, message="No data ingested")
         
     except Exception as e:
-        return JSONResponse(content={"ready": False, "message": str(e)}, status_code=500)
+        return DBStatusResponse(ready=False, message=str(e))
 
-@app.get("/health", status_code=200)
-async def health():
-    return {"status": "ok"}
+@app.get(
+    "/health",
+    response_model=HealthResponse,
+    status_code=200,
+    summary="Health check",
+    description="Check if the service is running."
+)
+async def health() -> HealthResponse:
+    return HealthResponse(status="ok")
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "5000"))
