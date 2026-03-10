@@ -2,6 +2,7 @@ import os
 import logging
 import asyncio
 import uuid
+from typing import Optional
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -155,12 +156,30 @@ async def list_models():
     "/v1/perf_metrics",
     response_model=PerfMetricsResponse,
     summary="Get performance metrics",
-    description="Return collected performance metrics for recent chat completion and retrieval calls."
+    description="Return collected performance metrics for recent chat completion and retrieval calls. If request ID is provided, returns only that metric"
 )
-def get_perf_metrics() -> PerfMetricsResponse:
-    """Returns performance metrics as a dictionary"""
-    metrics = perf_registry.get_metrics()
-    return PerfMetricsResponse(metrics=metrics)
+def get_perf_metrics(request_id: Optional[str] = None) -> PerfMetricsResponse:
+    """
+    Retrieve performance metrics for API requests.
+    
+    Query Parameters:
+        request_id: Optional request ID to filter metrics. If provided, returns only that metric.
+                   If omitted, returns all recent metrics (up to 1000 most recent).
+    
+    Returns:
+        PerfMetricsResponse containing a list of performance metrics.
+    
+    Raises:
+        HTTPException: 404 if request_id is specified but not found.
+    """
+    if request_id:
+        metric = perf_registry.get_metric_by_request_id(request_id)
+        if metric is None:
+            raise HTTPException(status_code=404, detail=f"No metric found for request_id: {request_id}")
+        return PerfMetricsResponse(metrics=[metric])
+    else:
+        metrics = perf_registry.get_metrics()
+        return PerfMetricsResponse(metrics=metrics)
 
 async def locked_stream(stream_g, perf_stat_dict):
     try:

@@ -154,26 +154,53 @@ class PerfMetric(BaseModel):
 
 
 class PerfMetricsResponse(BaseModel):
-    """Response containing list of performance metrics"""
+    """
+    Response containing list of performance metrics.
+    
+    Supports filtering by request_id via query parameter.
+    """
     metrics: list[PerfMetric] = Field(..., description="List of performance metrics from recent requests")
 
     model_config = {
         "json_schema_extra": {
-            "example": {
-                "metrics": [
-                    {
-                        "timestamp": 1678901234.567,
-                        "readable_timestamp": "2023-03-15 14:30:34",
-                        "request_id": "550e8400-e29b-41d4-a716-446655440000",
-                        "retrieve_time": 0.15,
-                        "rerank_time": 0.12,
-                        "inference_time": 1.25,
-                        "completion_tokens": 150,
-                        "prompt_tokens": 500,
-                        "token_latencies": [0.05, 0.04, 0.06]
+            "examples": [
+                {
+                    "summary": "Get all metrics",
+                    "description": "Returns all recent performance metrics when no request_id is specified",
+                    "value": {
+                        "metrics": [
+                            {
+                                "timestamp": 1678901234.567,
+                                "readable_timestamp": "2023-03-15 14:30:34",
+                                "request_id": "550e8400-e29b-41d4-a716-446655440000",
+                                "retrieve_time": 0.15,
+                                "rerank_time": 0.12,
+                                "inference_time": 1.25,
+                                "completion_tokens": 150,
+                                "prompt_tokens": 500
+                            }
+                        ]
                     }
-                ]
-            }
+                },
+                {
+                    "summary": "Get metric by request_id",
+                    "description": "Returns a single metric when request_id query parameter is specified",
+                    "value": {
+                        "metrics": [
+                            {
+                                "timestamp": 1678901234.567,
+                                "readable_timestamp": "2023-03-15 14:30:34",
+                                "request_id": "550e8400-e29b-41d4-a716-446655440000",
+                                "retrieve_time": 0.15,
+                                "rerank_time": 0.12,
+                                "inference_time": 1.25,
+                                "completion_tokens": 150,
+                                "prompt_tokens": 500
+                            }
+                        ]
+                    }
+                }
+            ]
         }
     }
 
