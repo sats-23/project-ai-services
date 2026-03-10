@@ -163,7 +163,7 @@ async def locked_stream(stream_g, perf_stat_dict):
     "/v1/chat/completions",
     response_model=ChatCompletionResponse,
     summary="Chat with RAG",
-    description="Generate chat completions grounded in retrieved documents. Returns streaming response if stream=true, otherwise returns structured JSON."
+    description="Generate chat completions grounded in retrieved documents. Returns streaming response if stream=true, otherwise returns structured JSON. For detailed request and response structure, see: https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create"
 )
 async def chat_completion(req: ChatCompletionRequest) -> ChatCompletionResponse | StreamingResponse:
     if not req.messages:
