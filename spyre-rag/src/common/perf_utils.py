@@ -2,6 +2,7 @@ import threading
 import time
 from datetime import datetime
 from collections import deque
+from common.misc_utils import get_request_id
 
 class PerfMetricsRegistry:
     def __init__(self, max_size=1000):
@@ -13,6 +14,8 @@ class PerfMetricsRegistry:
         metric["timestamp"] = time.time()
         # Also add a readable string version
         metric["readable_timestamp"] = datetime.fromtimestamp(metric["timestamp"]).strftime('%Y-%m-%d %H:%M:%S')
+        # Capture request_id from context
+        metric["request_id"] = get_request_id()
         with self._lock:
             self._metrics.append(metric)
 

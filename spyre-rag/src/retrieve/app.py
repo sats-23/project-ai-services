@@ -1,6 +1,7 @@
 import os
 import logging
 import asyncio
+import uuid
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -10,7 +11,7 @@ from asyncio import BoundedSemaphore
 from functools import wraps
 import common.db_utils as db
 from common.llm_utils import create_llm_session, query_vllm_stream, query_vllm_non_stream, query_vllm_models
-from common.misc_utils import get_model_endpoints, set_log_level
+from common.misc_utils import get_model_endpoints, set_log_level, set_request_id
 from common.settings import get_settings
 from common.perf_utils import perf_registry
 from retrieve.backend_utils import search_only
@@ -22,6 +23,7 @@ from retrieve.response_utils import (
     DBStatusResponse,
     HealthResponse,
     ModelsResponse,
+    PerfMetricsResponse,
 )
 import uvicorn
 from starlette.concurrency import iterate_in_threadpool
@@ -70,6 +72,14 @@ app = FastAPI(
     description="RAG-based chatbot API with document retrieval, reranking, and LLM-powered responses.",
     version="1.0.0"
 )
+
+@app.middleware("http")
+async def add_request_id(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
+    set_request_id(request_id)
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    return response
 
 @app.get("/", include_in_schema=False)
 def swagger_root():
@@ -143,12 +153,14 @@ async def list_models():
 
 @app.get(
     "/v1/perf_metrics",
+    response_model=PerfMetricsResponse,
     summary="Get performance metrics",
-    description="Return collected performance metrics for recent chat completion calls."
+    description="Return collected performance metrics for recent chat completion and retrieval calls."
 )
-def get_perf_metrics():
+def get_perf_metrics() -> PerfMetricsResponse:
     """Returns performance metrics as a dictionary"""
-    return perf_registry.get_metrics()
+    metrics = perf_registry.get_metrics()
+    return PerfMetricsResponse(metrics=metrics)
 
 async def locked_stream(stream_g, perf_stat_dict):
     try:
