@@ -11,6 +11,34 @@ const client = new OpenAI({
 async function customSendMessage(request, _options, instance) {
   const userInput = request.input.text;
 
+  // Helper function to display error message
+  const displayErrorMessage = async (responseId, itemId, errorText) => {
+    await instance.messaging.addMessageChunk({
+      final_response: {
+        id: responseId,
+        output: {
+          generic: [
+            {
+              response_type: 'text',
+              text: errorText,
+              streaming_metadata: {
+                id: itemId,
+                stream_stopped: true,
+              },
+            },
+          ],
+        },
+        message_options: {
+          response_user_profile: {
+            id: 'assistant',
+            nickname: 'Assistant',
+            user_type: UserType.BOT,
+          },
+        },
+      },
+    });
+  };
+
   try {
     const res = await axios.get('/db-status');
     if (res.data.ready === false) {
@@ -221,32 +249,26 @@ async function customSendMessage(request, _options, instance) {
   } catch (err) {
     instance.updateIsMessageLoadingCounter('decrease');
 
-    let errorMessage = 'Error occurred during active stream.';
+    let errorMessage = '⚠️ Error occurred during active stream.';
 
+    // Handle specific HTTP status codes
     if (err.status === 429) {
       errorMessage = '⚠️ Server busy. Try again shortly.';
+    } else if (err.status === 502) {
+      errorMessage = '⚠️ Bad gateway. Backend server may be down.';
+    } else if (err.status === 503) {
+      errorMessage = '⚠️ Service unavailable. Please try again later.';
+    } else if (err.status === 500) {
+      errorMessage = '⚠️ Internal server error. Please try again.';
+    } else if (err.message) {
+      // Extract error message from exception
+      errorMessage = `⚠️ ${err.message}`;
+    } else if (err.error?.message) {
+      // Extract error from OpenAI error format
+      errorMessage = `⚠️ ${err.error.message}`;
     }
 
-    await instance.messaging.addMessageChunk({
-      final_response: {
-        id: responseId,
-        output: {
-          generic: [
-            {
-              response_type: 'text',
-              text: errorMessage,
-              streaming_metadata: {
-                id: itemId,
-                stream_stopped: true,
-              },
-            },
-          ],
-        },
-        message_options: {
-          response_user_profile: ResponseUserProfile,
-        },
-      },
-    });
+    await displayErrorMessage(responseId, itemId, errorMessage);
   } finally {
     _options.signal?.removeEventListener('abort', abortHandler);
   }
