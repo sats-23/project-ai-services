@@ -148,6 +148,11 @@ async function customSendMessage(request, _options, instance) {
     for await (const chunk of stream) {
       if (isCanceled) break;
 
+      // Check for error in the chunk
+      if (chunk.error) {
+        throw new Error(chunk.error);
+      }
+
       // to extract the content from the parsed JSON chunk
       const textChunk = chunk.choices[0]?.delta?.content || '';
 
