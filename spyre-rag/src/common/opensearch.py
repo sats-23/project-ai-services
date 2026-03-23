@@ -131,9 +131,10 @@ class OpensearchVectorStore(VectorStore):
             logger.error(f"Failed to create index {self.index_name}: {e}")
             raise
 
+    @retry_on_transient_error(max_retries=3, initial_delay=1.0, backoff_multiplier=2.0)
     def insert_chunks(self, chunks, vectors=None, embedding=None, batch_size=10):
         """
-        Supports 2 modes of insertion
+        Supports 2 modes of insertion with retry logic for transient failures.
         1. Pure embedding: pass 'chunks' and 'vectors'
         2. Text chunks: pass 'chunks' and 'embedding' (class instance)
 
