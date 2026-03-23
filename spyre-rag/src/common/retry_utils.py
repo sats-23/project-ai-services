@@ -73,7 +73,7 @@ def is_retryable_error(exception: Exception) -> bool:
 
 def retry_on_transient_error(
     max_retries: int = 3,
-    initial_delay: float = 0.1,
+    initial_delay: float = 1.0,
     backoff_multiplier: float = 2.0,
     max_delay: float = 10.0,
     retryable_exceptions: Optional[Tuple[Type[Exception], ...]] = None
@@ -83,7 +83,7 @@ def retry_on_transient_error(
     
     Args:
         max_retries: Maximum number of retry attempts (default: 3)
-        initial_delay: Initial delay between retries in seconds (default: 0.1)
+        initial_delay: Initial delay between retries in seconds (default: 1.0)
         backoff_multiplier: Multiplier for delay after each retry (default: 2.0)
         max_delay: Maximum delay between retries in seconds (default: 10.0)
         retryable_exceptions: Tuple of exception types to retry on. If None, uses
@@ -93,7 +93,7 @@ def retry_on_transient_error(
         Decorated function with retry logic
         
     Example:
-        @retry_on_transient_error(max_retries=3, initial_delay=0.1)
+        @retry_on_transient_error(max_retries=3, initial_delay=1.0)
         def call_api(url):
             response = requests.get(url)
             response.raise_for_status()

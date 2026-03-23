@@ -6,7 +6,7 @@ from cohere import ClientV2
 
 logger = get_logger("reranker")
 
-@retry_on_transient_error(max_retries=3, initial_delay=0.1, backoff_multiplier=2.0)
+@retry_on_transient_error(max_retries=3, initial_delay=1.0, backoff_multiplier=2.0)
 def rerank_helper(co2_client: ClientV2, query: str, document: dict, model: str) -> Tuple[dict, float]:
     """
     Rerank a single LangChain Document with respect to the query.

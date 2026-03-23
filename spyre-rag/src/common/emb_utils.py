@@ -20,7 +20,7 @@ class Embedding:
     def embed_query(self, text):
         return self._post_embedding([text])[0]
 
-    @retry_on_transient_error(max_retries=3, initial_delay=0.1, backoff_multiplier=2.0)
+    @retry_on_transient_error(max_retries=3, initial_delay=1.0, backoff_multiplier=2.0)
     def _post_embedding(self, texts):
         payload = {
             "input": texts,

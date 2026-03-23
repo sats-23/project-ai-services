@@ -46,7 +46,7 @@ def create_llm_session(pool_maxsize, pool_connections: int = 2, pool_block: bool
 
         SESSION = session
 
-@retry_on_transient_error(max_retries=3, initial_delay=0.1, backoff_multiplier=2.0)
+@retry_on_transient_error(max_retries=3, initial_delay=1.0, backoff_multiplier=2.0)
 def summarize_and_classify_single_table(prompt, gen_model, llm_endpoint):
     if SESSION is None:
         raise RuntimeError("LLM session not initialized. Call create_llm_session() first.")
@@ -107,7 +107,7 @@ def summarize_and_classify_tables(table_htmls, gen_model, llm_endpoint, pdf_path
 
     return summaries, decisions
 
-@retry_on_transient_error(max_retries=3, initial_delay=0.1, backoff_multiplier=2.0)
+@retry_on_transient_error(max_retries=3, initial_delay=1.0, backoff_multiplier=2.0)
 def query_vllm_models(llm_endpoint):
     if SESSION is None:
         raise RuntimeError("LLM session not initialized. Call create_llm_session() first.")
@@ -153,7 +153,7 @@ def query_vllm_payload(question, documents, llm_endpoint, llm_model, stop_words,
         payload["stream_options"] = {"include_usage": True}
     return headers, payload
 
-@retry_on_transient_error(max_retries=3, initial_delay=0.1, backoff_multiplier=2.0)
+@retry_on_transient_error(max_retries=3, initial_delay=1.0, backoff_multiplier=2.0)
 def query_vllm_non_stream(question, documents, llm_endpoint, llm_model, stop_words, max_new_tokens, temperature, perf_stat_dict, lang):
     if SESSION is None:
         raise RuntimeError("LLM session not initialized. Call create_llm_session() first.")
@@ -232,7 +232,7 @@ def query_vllm_stream(question, documents, llm_endpoint, llm_model, stop_words, 
         yield f"data: {json.dumps({'error': str(e)})}\n\n"
         yield "data: [DONE]\n\n"
 
-@retry_on_transient_error(max_retries=3, initial_delay=0.1, backoff_multiplier=2.0)
+@retry_on_transient_error(max_retries=3, initial_delay=1.0, backoff_multiplier=2.0)
 def query_vllm_summarize(
     llm_endpoint: str,
     messages: list,
@@ -327,7 +327,7 @@ def query_vllm_summarize_stream(
         yield f"data: {json.dumps({'error': str(e)})}\n\n"
         yield "data: [DONE]\n\n"
 
-@retry_on_transient_error(max_retries=3, initial_delay=0.1, backoff_multiplier=2.0)
+@retry_on_transient_error(max_retries=3, initial_delay=1.0, backoff_multiplier=2.0)
 def tokenize_with_llm(prompt, emb_endpoint, max_retries=3):
     """
     Tokenize text using the LLM embedding endpoint with retry logic.
@@ -358,7 +358,7 @@ def tokenize_with_llm(prompt, emb_endpoint, max_retries=3):
     
     return tokens
 
-@retry_on_transient_error(max_retries=3, initial_delay=0.1, backoff_multiplier=2.0)
+@retry_on_transient_error(max_retries=3, initial_delay=1.0, backoff_multiplier=2.0)
 def detokenize_with_llm(tokens, emb_endpoint, max_retries=3):
     """
     Detokenize tokens using the LLM embedding endpoint with retry logic.

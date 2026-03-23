@@ -374,7 +374,7 @@ class OpensearchVectorStore(VectorStore):
         return exists
 
 
-    @retry_on_transient_error(max_retries=3, initial_delay=0.1, backoff_multiplier=2.0)
+    @retry_on_transient_error(max_retries=3, initial_delay=1.0, backoff_multiplier=2.0)
     def remove_docs_from_index(self, doc_ids: list[str]):
         """
         Delete all chunks associated with the specified document IDs from the index.
@@ -423,7 +423,7 @@ class OpensearchVectorStore(VectorStore):
         return deleted_count
 
 
-    @retry_on_transient_error(max_retries=3, initial_delay=0.1, backoff_multiplier=2.0)
+    @retry_on_transient_error(max_retries=3, initial_delay=1.0, backoff_multiplier=2.0)
     def delete_document_by_id(self, doc_id: str):
         """
         Delete all chunks associated with a specific document from the index.
