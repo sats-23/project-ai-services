@@ -55,6 +55,7 @@ class OpensearchVectorStore(VectorStore):
         hash_part = hashlib.md5(name.encode()).hexdigest()
         return f"{self.db_prefix}_{hash_part}"
 
+    @retry_on_transient_error(max_retries=3, initial_delay=1.0, backoff_multiplier=2.0)
     def _create_pipeline(self):
         logger.debug("Creating hybrid search pipeline")
 
@@ -79,7 +80,9 @@ class OpensearchVectorStore(VectorStore):
             logger.debug("Hybrid search pipeline created successfully")
         except Exception as e:
             logger.error(f"Failed to create hybrid search pipeline: {e}")
+            raise
 
+    @retry_on_transient_error(max_retries=3, initial_delay=1.0, backoff_multiplier=2.0)
     def _setup_index(self, dim):
         logger.debug(f"Setting up index {self.index_name} with dimension {dim}")
 
@@ -113,7 +116,7 @@ class OpensearchVectorStore(VectorStore):
                         }
                     },
                      "page_content": {
-                        "type": "text", 
+                        "type": "text",
                         "analyzer": "standard"
                     },
                     "filename": {"type": "keyword"},
@@ -244,10 +247,12 @@ class OpensearchVectorStore(VectorStore):
         return True
 
 
+    @retry_on_transient_error(max_retries=3, initial_delay=1.0, backoff_multiplier=2.0)
     def search(self, query_text, vector=None, embedding=None, top_k=5, mode=None, doc_id=None, language='en'):
         """
         Supported search modes: dense(semantic search), sparse(keyword match) and hybrid(combination of dense and sparse).
         Accepts either a pre-computed 'vector' OR an 'embedding' instance.
+        Includes retry logic for transient failures.
         """
         logger.debug(f"Starting search operation: query='{query_text[:50]}...', top_k={top_k}, mode={mode}, language={language}")
 
@@ -366,7 +371,12 @@ class OpensearchVectorStore(VectorStore):
         logger.debug(f"Search operation completed successfully with {len(results)} results")
         return results
 
+    @retry_on_transient_error(max_retries=3, initial_delay=1.0, backoff_multiplier=2.0)
     def check_db_populated(self):
+        """
+        Check if the database index exists and is populated.
+        Includes retry logic for transient failures.
+        """
         logger.debug(f"Checking if database is populated for index {self.index_name}")
 
         exists = self.client.indices.exists(index=self.index_name)

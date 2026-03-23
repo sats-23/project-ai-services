@@ -15,6 +15,7 @@ import time
 import functools
 import requests
 from typing import Callable, TypeVar, Any, Optional, Tuple, Type
+from opensearchpy import OpenSearchException, ConnectionError as OSConnectionError, TransportError
 from common.misc_utils import get_logger
 
 logger = get_logger("retry_utils")
@@ -32,31 +33,18 @@ def is_retryable_error(exception: Exception) -> bool:
     Returns:
         True if the error is retryable, False otherwise
     """
-    # Check for HTTP errors
-    if isinstance(exception, requests.exceptions.HTTPError):
-        if exception.response is not None:
+    # Network-related errors (HTTP and connection issues)
+    if isinstance(exception, (requests.exceptions.HTTPError, requests.exceptions.RequestException)):
+        # Check for HTTP 5xx errors
+        if isinstance(exception, requests.exceptions.HTTPError) and exception.response is not None:
             status_code = exception.response.status_code
-            # Retry on 5xx errors
             if 500 <= status_code < 600:
-                response_text = exception.response.text
-                # Check for specific error patterns
-                if any(pattern in response_text for pattern in [
-                    "Already borrowed",
-                    "Internal Server Error",
-                    "Service Unavailable",
-                    "Gateway Timeout",
-                    "Bad Gateway"
-                ]):
-                    return True
-                # Retry all 5xx errors by default
                 return True
-        return False
-    
-    # Check for connection errors
-    if isinstance(exception, requests.exceptions.RequestException):
-        error_str = str(exception)
+        
         # Check for connection-related errors
+        error_str = str(exception)
         if any(pattern in error_str for pattern in [
+            "Already borrowed",
             "Connection aborted",
             "RemoteDisconnected",
             "Connection reset",
@@ -64,7 +52,34 @@ def is_retryable_error(exception: Exception) -> bool:
             "Connection timeout",
             "Read timed out",
             "Timeout",
-            "ConnectionError"
+            "ConnectionError",
+            "Internal Server Error",
+            "Service Unavailable",
+            "Gateway Timeout",
+            "Bad Gateway"
+        ]):
+            return True
+    
+    # OpenSearch-related errors
+    if isinstance(exception, (OpenSearchException, OSConnectionError, TransportError)):
+        # Connection and transport errors are always retryable
+        if isinstance(exception, (OSConnectionError, TransportError)):
+            return True
+        
+        # For generic OpenSearchException, check if it contains transient error indicators
+        # (OpenSearch wraps HTTP errors in exceptions with error details in the message)
+        error_str = str(exception)
+        if any(pattern in error_str for pattern in [
+            "Connection",
+            "Timeout",
+            "503",
+            "500",
+            "502",
+            "504",
+            "Service Unavailable",
+            "Internal Server Error",
+            "Bad Gateway",
+            "Gateway Timeout"
         ]):
             return True
     
@@ -100,7 +115,12 @@ def retry_on_transient_error(
             return response.json()
     """
     if retryable_exceptions is None:
-        retryable_exceptions = (requests.exceptions.RequestException,)
+        retryable_exceptions = (
+            requests.exceptions.RequestException,
+            OpenSearchException,
+            OSConnectionError,
+            TransportError
+        )
     
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @functools.wraps(func)
