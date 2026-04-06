@@ -27,7 +27,7 @@ set_log_level(log_level)
 
 import common.db_utils as db
 from common.lang_utils import setup_language_detector, detect_language, lang_de, max_tokens_map
-from common.misc_utils import get_model_endpoints, set_request_id, EndpointFilter, RequestIDFormatter, configure_uvicorn_logging
+from common.misc_utils import get_model_endpoints, set_request_id, configure_uvicorn_logging
 
 from common.llm_utils import create_llm_session, query_vllm_stream, query_vllm_non_stream, query_vllm_models
 from common.settings import get_settings

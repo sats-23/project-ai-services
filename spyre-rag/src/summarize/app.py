@@ -24,7 +24,7 @@ if level != "":
 set_log_level(log_level)
 
 from common.llm_utils import create_llm_session, query_vllm_summarize, query_vllm_summarize_stream
-from common.misc_utils import get_model_endpoints, set_request_id, EndpointFilter, RequestIDFormatter, configure_uvicorn_logging
+from common.misc_utils import get_model_endpoints, set_request_id, configure_uvicorn_logging
 
 from common.settings import get_settings
 from summarize.summ_utils import (
