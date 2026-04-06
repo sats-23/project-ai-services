@@ -46,11 +46,11 @@ class EndpointFilter(logging.Filter):
     
     These endpoints are only logged when LOG_LEVEL is set to DEBUG.
     """
-    def __init__(self, log_level):
+    def __init__(self, log_level, filtered_paths):
         super().__init__()
         self.log_level = log_level
         # Endpoints to filter out at INFO level
-        self.filtered_paths = ['/health', '/v1/jobs']
+        self.filtered_paths = filtered_paths
     
     def filter(self, record):
         # If DEBUG level, allow all logs through
@@ -66,6 +66,40 @@ class EndpointFilter(logging.Filter):
                 return False
         
         return True
+
+def configure_uvicorn_logging(log_level, filtered_paths):
+    """
+    Configure uvicorn loggers with custom formatting and filtering.
+    
+    This function should be called after uvicorn sets up its logging (e.g., in lifespan).
+    It applies consistent formatting to uvicorn's main and access loggers, and adds
+    endpoint filtering to the access logger to reduce noise from health checks.
+    
+    Args:
+        log_level: The logging level to apply (e.g., logging.INFO, logging.DEBUG)
+        filtered_paths: List of endpoint paths to filter from access logs at INFO level
+    """
+    # Custom formatter matching application log format (without request_id for uvicorn logs)
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)-18s - %(levelname)-8s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    
+    # Configure uvicorn main logger (startup messages, etc.)
+    uvicorn_logger = logging.getLogger("uvicorn")
+    uvicorn_logger.setLevel(log_level)
+    for handler in uvicorn_logger.handlers:
+        handler.setFormatter(formatter)
+    
+    # Configure uvicorn.access logger (HTTP access logs)
+    uvicorn_access_logger = logging.getLogger("uvicorn.access")
+    uvicorn_access_logger.setLevel(log_level)
+    for handler in uvicorn_access_logger.handlers:
+        handler.setFormatter(formatter)
+    
+    # Apply endpoint filter to access logger only
+    uvicorn_access_logger.addFilter(EndpointFilter(log_level, filtered_paths))
+
 
 def set_request_id(request_id: str):
     #Set the request ID for the current context.

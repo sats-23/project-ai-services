@@ -23,30 +23,8 @@ if level != "":
 
 set_log_level(log_level)
 
-from common.misc_utils import get_logger, validate_pdf_file, set_request_id, EndpointFilter, RequestIDFormatter
+from common.misc_utils import get_logger, validate_pdf_file, set_request_id, EndpointFilter, RequestIDFormatter, configure_uvicorn_logging
 
-# Configure uvicorn loggers (applied in lifespan after uvicorn sets up logging)
-def configure_uvicorn_logging():
-    # Custom formatter matching application log format (without request_id for uvicorn logs)
-    formatter = logging.Formatter(
-        '%(asctime)s - %(name)-18s - %(levelname)-8s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-    
-    # Configure uvicorn main logger (startup messages, etc.)
-    uvicorn_logger = logging.getLogger("uvicorn")
-    uvicorn_logger.setLevel(log_level)
-    for handler in uvicorn_logger.handlers:
-        handler.setFormatter(formatter)
-    
-    # Configure uvicorn.access logger (HTTP access logs)
-    uvicorn_access_logger = logging.getLogger("uvicorn.access")
-    uvicorn_access_logger.setLevel(log_level)
-    for handler in uvicorn_access_logger.handlers:
-        handler.setFormatter(formatter)
-    
-    # Apply endpoint filter to access logger only
-    uvicorn_access_logger.addFilter(EndpointFilter(log_level))
 import digitize.digitize_utils as dg_util
 import digitize.types as types
 from digitize.digitize import digitize
@@ -66,7 +44,8 @@ logger = get_logger("digitize_server")
 async def lifespan(app: FastAPI):
     """Manage application lifespan events (startup and shutdown)."""
     # Startup
-    configure_uvicorn_logging()
+    filtered_paths = ['/health', '/v1/jobs']
+    configure_uvicorn_logging(log_level, filtered_paths)
     logger.info("Application starting up...")
 
     # Scan for orphan jobs and mark them as failed
