@@ -19,6 +19,47 @@ import traceback
 from typing import Dict, Any, Optional
 from pathlib import Path
 import time
+import threading
+
+
+def _run_with_timeout(func, args=(), kwargs=None, timeout=1.0, default=None):
+    """
+    Run a function with a timeout to prevent hanging on network mounts.
+    
+    Args:
+        func: Function to execute
+        args: Positional arguments for the function
+        kwargs: Keyword arguments for the function
+        timeout: Timeout in seconds (default: 1.0s)
+        default: Default value to return on timeout
+    
+    Returns:
+        Function result or default value on timeout
+    """
+    if kwargs is None:
+        kwargs = {}
+    
+    result = [default]
+    exception: list[Optional[Exception]] = [None]
+    
+    def target():
+        try:
+            result[0] = func(*args, **kwargs)
+        except Exception as e:
+            exception[0] = e
+    
+    thread = threading.Thread(target=target, daemon=True)
+    thread.start()
+    thread.join(timeout)
+    
+    if thread.is_alive():
+        # Thread is still running - timeout occurred
+        return default
+    
+    if exception[0]:
+        raise exception[0]
+    
+    return result[0]
 
 
 class DiagnosticLogger:
@@ -40,6 +81,7 @@ class DiagnosticLogger:
         self.process = psutil.Process(os.getpid())
         self.cooldown_seconds = 3
         self._last_diagnostic_dump_time = 0.0
+        self.disk_check_timeout = 1.0  # 1000ms timeout for disk operations
     
     def get_process_info(self) -> Dict[str, Any]:
         """
@@ -259,7 +301,10 @@ class DiagnosticLogger:
     
     def get_disk_usage(self, paths: Optional[list] = None) -> Dict[str, Any]:
         """
-        Collect disk usage information.
+        Collect disk usage information with timeout protection.
+        
+        Uses a short timeout (1000ms) to prevent hanging on unresponsive
+        network mounts (NFS, SMB, etc.) especially on macOS.
         
         Args:
             paths: List of paths to check. Defaults to ["/", "/tmp", current working directory].
@@ -274,14 +319,34 @@ class DiagnosticLogger:
             disk_info = {}
             for path in paths:
                 try:
-                    if os.path.exists(path):
-                        usage = shutil.disk_usage(path)
-                        disk_info[path] = {
-                            "total_gb": round(usage.total / (1024 ** 3), 2),
-                            "used_gb": round(usage.used / (1024 ** 3), 2),
-                            "free_gb": round(usage.free / (1024 ** 3), 2),
-                            "percent": round((usage.used / usage.total) * 100, 2)
-                        }
+                    # Check if path exists with timeout
+                    path_exists = _run_with_timeout(
+                        os.path.exists,
+                        args=(path,),
+                        timeout=self.disk_check_timeout,
+                        default=False
+                    )
+                    
+                    if path_exists:
+                        # Get disk usage with timeout to prevent hanging on network mounts
+                        usage = _run_with_timeout(
+                            shutil.disk_usage,
+                            args=(path,),
+                            timeout=self.disk_check_timeout,
+                            default=None
+                        )
+                        
+                        if usage is not None:
+                            disk_info[path] = {
+                                "total_gb": round(usage.total / (1024 ** 3), 2),
+                                "used_gb": round(usage.used / (1024 ** 3), 2),
+                                "free_gb": round(usage.free / (1024 ** 3), 2),
+                                "percent": round((usage.used / usage.total) * 100, 2)
+                            }
+                        else:
+                            disk_info[path] = {"error": "timeout - possible network mount hang"}
+                    else:
+                        disk_info[path] = {"error": "path does not exist or timed out"}
                 except Exception as e:
                     disk_info[path] = {"error": str(e)}
             
@@ -428,7 +493,6 @@ def setup_crash_handler(logger: Optional[logging.Logger] = None):
     return diagnostic_logger
 
 import signal
-import threading
 import select
 
 
