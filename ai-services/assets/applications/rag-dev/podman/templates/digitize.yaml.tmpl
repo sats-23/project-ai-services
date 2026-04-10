@@ -89,6 +89,14 @@ spec:
           value: "{{ .Values.opensearch.auth.password }}"
         - name: LOG_LEVEL
           value: "{{ .Values.digitize.log_level }}"
+        - name: OMP_NUM_THREADS
+          value: "8"
+        - name: MKL_NUM_THREADS
+          value: "8"
+        - name: DOCLING_NUM_THREADS
+          value: "8"
+        - name: OPENBLAS_NUM_THREADS
+          value: "2"
       volumeMounts:
         - mountPath: /var/cache:z
           name: cache
