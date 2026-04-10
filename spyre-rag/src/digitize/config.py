@@ -27,6 +27,13 @@ DEFAULT_OVERLAP_TOKENS = int(os.getenv("CHUNK_OVERLAP_TOKENS", "50"))
 # Document conversion parameters
 PDF_CHUNK_SIZE = int(os.getenv("PDF_CHUNK_SIZE", "100"))  # Pages per chunk for large PDF processing
 
+OMP_NUM_THREADS = int(os.getenv("OMP_NUM_THREADS", "8"))
+
+# Docling batch processing configuration
+DOCLING_LAYOUT_BATCH_SIZE = int(os.getenv("DOCLING_LAYOUT_BATCH_SIZE", "12"))
+DOCLING_TABLE_BATCH_SIZE = int(os.getenv("DOCLING_TABLE_BATCH_SIZE", "12"))
+DOCLING_NUM_THREADS = int(os.getenv("DOCLING_NUM_THREADS", "8"))
+
 # Batch processing
 OPENSEARCH_BATCH_SIZE = int(os.getenv("OPENSEARCH_BATCH_SIZE", "10"))
 

@@ -266,12 +266,23 @@ def get_doc_converter():
     import os
     from pathlib import Path
     from docling.datamodel.base_models import InputFormat
-    from docling.datamodel.pipeline_options import PdfPipelineOptions
+    from docling.datamodel.pipeline_options import ThreadedPdfPipelineOptions, AcceleratorOptions
     from docling.document_converter import DocumentConverter, PdfFormatOption
     from docling.backend.pypdfium2_backend import PyPdfiumDocumentBackend
+    from digitize.config import (
+        DOCLING_LAYOUT_BATCH_SIZE,
+        DOCLING_TABLE_BATCH_SIZE,
+        DOCLING_NUM_THREADS,
+        OMP_NUM_THREADS
+    )
 
-    # Accelerator & pipeline options
-    pipeline_options = PdfPipelineOptions()
+    pipeline_options = ThreadedPdfPipelineOptions(
+        layout_batch_size=DOCLING_LAYOUT_BATCH_SIZE,
+        table_batch_size=DOCLING_TABLE_BATCH_SIZE,
+        num_threads=DOCLING_NUM_THREADS
+    )
+    
+    pipeline_options.accelerator_options = AcceleratorOptions(num_threads=OMP_NUM_THREADS)
     
     # Only set artifacts_path if DOCLING_MODELS_PATH environment variable is set
     docling_models_path = os.environ.get('DOCLING_MODELS_PATH')
@@ -285,9 +296,14 @@ def get_doc_converter():
     else:
         logger.debug("DOCLING_MODELS_PATH not set. Docling will use default model loading behavior.")
     
+    # Enable table structure detection with cell matching
     pipeline_options.do_table_structure = True
     pipeline_options.table_structure_options.do_cell_matching = True
     pipeline_options.do_ocr = False
+    
+    logger.debug(f"Docling configuration: layout_batch={DOCLING_LAYOUT_BATCH_SIZE}, "
+                f"table_batch={DOCLING_TABLE_BATCH_SIZE}, num_threads={DOCLING_NUM_THREADS}, "
+                f"accelerator_threads={OMP_NUM_THREADS}")
 
     doc_converter = DocumentConverter(
         allowed_formats=[
