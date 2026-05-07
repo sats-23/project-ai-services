@@ -151,6 +151,24 @@ def limit_concurrency(f):
             concurrency_limiter.release()
     return wrapper
 
+def get_stop_words_with_special_tokens(request_stop_words):
+    """
+    Add common special tokens to stop words to prevent them from appearing in responses.
+    
+    Args:
+        request_stop_words: Stop words from the request (can be None, list, or string)
+    
+    Returns:
+        List of stop words including special tokens
+    """
+    stop_words = list(request_stop_words) if request_stop_words else []
+    # Add common special tokens that should stop generation
+    special_tokens = ["[/assistant]", "</s>", "<|endoftext|>", "<|im_end|>"]
+    for token in special_tokens:
+        if token not in stop_words:
+            stop_words.append(token)
+    return stop_words
+
 async def is_auth_required() -> bool:
     """
     Check if vLLM authentication is required and cache the result.
@@ -423,6 +441,8 @@ async def chat_completion(req: ChatCompletionRequest, credentials: Optional[HTTP
         await concurrency_limiter.acquire()
 
         try:
+            stop_words = get_stop_words_with_special_tokens(req.stop)
+            
             if req.stream:
                 vllm_stream = await asyncio.to_thread(
                     query_vllm_stream,
@@ -430,7 +450,7 @@ async def chat_completion(req: ChatCompletionRequest, credentials: Optional[HTTP
                     docs,
                     llm_endpoint,
                     llm_model,
-                    req.stop,
+                    stop_words,
                     max_tokens,
                     req.temperature,
                     perf_stat_dict,
@@ -449,7 +469,7 @@ async def chat_completion(req: ChatCompletionRequest, credentials: Optional[HTTP
                 docs,
                 llm_endpoint,
                 llm_model,
-                req.stop,
+                stop_words,
                 max_tokens,
                 req.temperature,
                 perf_stat_dict,
