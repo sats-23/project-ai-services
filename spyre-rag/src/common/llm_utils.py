@@ -175,7 +175,6 @@ def query_vllm_payload(
     api_key: str | None = None,
     previous_messages: list | None = None,
     rephrased_query: str | None = None,
-    history_token_count: int = 0,
 ):
     context = "\n\n".join([doc.get("page_content") for doc in documents])
 
@@ -238,7 +237,6 @@ def query_vllm_payload(
 
         logger.debug(f"Message array length: {len(message_array)}")
         logger.debug(f"History messages: {len(previous_messages) if previous_messages else 0}")
-        logger.debug(f"History tokens used: {history_token_count if history_budget > 0 else 0}")
     else:
         # Legacy mode: use simple prompt template without conversation history
         # Dynamic chunk truncation: truncates the context if it doesn't fit in the sequence length
@@ -297,7 +295,6 @@ def query_vllm_non_stream(
     api_key: str | None = None,
     previous_messages: list | None = None,
     rephrased_query: str | None = None,
-    history_token_count: int = 0,
 ):
     if misc_utils.SESSION is None:
         raise RuntimeError("LLM session not initialized. Call create_llm_session() first.")
@@ -315,7 +312,6 @@ def query_vllm_non_stream(
         api_key,
         previous_messages,
         rephrased_query,
-        history_token_count,
     )
 
     # Use requests for synchronous HTTP requests
@@ -344,7 +340,6 @@ def query_vllm_stream(
     api_key: str | None = None,
     previous_messages: list | None = None,
     rephrased_query: str | None = None,
-    history_token_count: int = 0,
 ):
     if misc_utils.SESSION is None:
         raise RuntimeError("LLM session not initialized. Call create_llm_session() first.")
@@ -362,7 +357,6 @@ def query_vllm_stream(
         api_key,
         previous_messages,
         rephrased_query,
-        history_token_count,
     )
     try:
         # Use requests for synchronous HTTP requests

@@ -375,14 +375,13 @@ async def chat_completion(req: ChatCompletionRequest, credentials: Optional[HTTP
             max_tokens = max_tokens_map.get(lang, settings.common.llm.llm_max_tokens)
 
         truncated_history = []
-        history_token_count = 0
         rephrased_query = current_query
         
         # Only process conversation history and rephrase query in conversational mode
         # Conversational mode only works for English language
         if settings.chatbot.conversational_mode and previous_messages and lang == "EN":
             # Truncate history for query rephrasing with 1000 token budget
-            truncated_history_for_rephrasing, _ = await asyncio.to_thread(
+            truncated_history_for_rephrasing = await asyncio.to_thread(
                 truncate_history_by_tokens,
                 previous_messages,
                 settings.query_rephrasing.history_token_budget,
@@ -411,8 +410,8 @@ async def chat_completion(req: ChatCompletionRequest, credentials: Optional[HTTP
         # Calculate history budget after getting docs (context is prioritized)
         # History truncation will happen inside query_vllm_payload based on actual context size
         if settings.chatbot.conversational_mode and previous_messages and lang == "EN":
-            # Pre-truncate history with max budget for token counting
-            truncated_history, history_token_count = await asyncio.to_thread(
+            # Pre-truncate history with max budget
+            truncated_history = await asyncio.to_thread(
                 truncate_history_by_tokens,
                 previous_messages,
                 settings.chatbot.history_token_budget,
@@ -458,7 +457,6 @@ async def chat_completion(req: ChatCompletionRequest, credentials: Optional[HTTP
                     api_key,
                     truncated_history,
                     rephrased_query,
-                    history_token_count,
                 )
                 # For streaming, release is handled in locked_stream's finally block
                 return StreamingResponse(locked_stream(vllm_stream, perf_stat_dict), media_type="text/event-stream")
@@ -477,7 +475,6 @@ async def chat_completion(req: ChatCompletionRequest, credentials: Optional[HTTP
                 api_key,
                 truncated_history,
                 rephrased_query,
-                history_token_count,
             )
             # Store metrics in registry for non-stream
             perf_registry.add_metric(perf_stat_dict)

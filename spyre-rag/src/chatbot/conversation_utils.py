@@ -41,7 +41,7 @@ def truncate_history_by_tokens(
     messages: Sequence[dict[str, str]],
     token_budget: int,
     llm_endpoint: str
-) -> tuple[list[dict[str, str]], int]:
+) -> list[dict[str, str]]:
     """
     Truncate history using a token-based sliding window.
 
@@ -49,10 +49,10 @@ def truncate_history_by_tokens(
     If the newest single message alone exceeds the budget, it is still kept.
     
     Returns:
-        tuple: (truncated_messages, total_token_count)
+        list: truncated_messages
     """
     if not messages:
-        return [], 0
+        return []
 
     try:
         truncated: list[dict[str, str]] = []
@@ -67,7 +67,7 @@ def truncate_history_by_tokens(
                     "Single history message exceeds budget; keeping newest message "
                     f"({message_tokens} tokens > budget {token_budget})"
                 )
-                return [message], message_tokens
+                return [message]
 
             if current_tokens + message_tokens <= token_budget:
                 truncated.insert(0, message)
@@ -87,8 +87,8 @@ def truncate_history_by_tokens(
                 f"({current_tokens} tokens)"
             )
 
-        return truncated, current_tokens
+        return truncated
     except Exception as exc:
         logger.error(f"Failed to truncate history by tokens: {exc}", exc_info=True)
         logger.warning("Falling back to untruncated history")
-        return list(messages), 0
+        return list(messages)
