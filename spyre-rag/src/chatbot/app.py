@@ -374,7 +374,6 @@ async def chat_completion(req: ChatCompletionRequest, credentials: Optional[HTTP
         if not max_tokens:
             max_tokens = max_tokens_map.get(lang, settings.common.llm.llm_max_tokens)
 
-        truncated_history = []
         rephrased_query = current_query
         
         # Only process conversation history and rephrase query in conversational mode
@@ -444,7 +443,7 @@ async def chat_completion(req: ChatCompletionRequest, credentials: Optional[HTTP
                     perf_stat_dict,
                     lang,
                     api_key,
-                    truncated_history,
+                    previous_messages,
                     rephrased_query,
                 )
                 # For streaming, release is handled in locked_stream's finally block
@@ -462,7 +461,7 @@ async def chat_completion(req: ChatCompletionRequest, credentials: Optional[HTTP
                 perf_stat_dict,
                 lang,
                 api_key,
-                truncated_history,
+                previous_messages,
                 rephrased_query,
             )
             # Store metrics in registry for non-stream
