@@ -428,17 +428,6 @@ async def chat_completion(req: ChatCompletionRequest, credentials: Optional[HTTP
             APIError.raise_error(ErrorCode.SERVER_BUSY, "Try again shortly.")
         await concurrency_limiter.acquire()
 
-        # Calculate history budget after getting docs (context is prioritized)
-        # History truncation will happen inside query_vllm_payload based on actual context size
-        if settings.chatbot.conversational_mode and previous_messages and lang == "EN":
-            # Pre-truncate history with max budget
-            truncated_history = await asyncio.to_thread(
-                truncate_history_by_tokens,
-                previous_messages,
-                settings.chatbot.history_token_budget,
-                llm_endpoint
-            )
-
         try:
             stop_words = get_stop_words_with_special_tokens(req.stop)
             
