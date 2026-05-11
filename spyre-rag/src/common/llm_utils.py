@@ -225,7 +225,7 @@ def query_vllm_payload(
             truncated_messages = truncate_history_by_tokens(
                 previous_messages,
                 history_budget,
-                llm_endpoint
+                lambda text: tokenize_with_llm(text, llm_endpoint)
             )
             
             if truncated_messages:
