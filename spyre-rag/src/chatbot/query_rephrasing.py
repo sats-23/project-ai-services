@@ -12,9 +12,57 @@ from typing import List, Dict, Optional
 
 from common.misc_utils import get_logger
 from common.retry_utils import retry_on_transient_error
+from common.llm_utils import tokenize_with_llm
 import common.misc_utils as misc_utils
 
 logger = get_logger("query_rephrasing")
+
+
+def calculate_dynamic_max_response_tokens(
+    query: str,
+    llm_endpoint: str,
+    base_max_response_tokens: int,
+    multiplier: float,
+    system_max_query_length: int
+) -> int:
+    """
+    Calculate dynamic max_response_tokens for query rephrasing based on input query length.
+    
+    Args:
+        query: The input query to be rephrased
+        llm_endpoint: LLM endpoint for tokenization
+        base_max_response_tokens: Minimum baseline max_response_tokens (from config)
+        multiplier: Multiplier for expansion (e.g., 1.2 = 20% expansion)
+        system_max_query_length: System-wide max query token length
+    
+    Returns:
+        Calculated max_response_tokens value
+    """
+    try:
+        input_tokens = tokenize_with_llm(query, llm_endpoint)
+        input_token_count = len(input_tokens)
+        
+        dynamic_max = int(input_token_count * multiplier)
+        
+        calculated_max_response_tokens = max(
+            base_max_response_tokens,
+            min(dynamic_max, system_max_query_length)
+        )
+        
+        logger.debug(
+            f"Dynamic max_response_tokens calculation: input={input_token_count} tokens, "
+            f"dynamic={dynamic_max}, final={calculated_max_response_tokens} "
+            f"(base={base_max_response_tokens}, multiplier={multiplier}, system_max={system_max_query_length})"
+        )
+        
+        return calculated_max_response_tokens
+        
+    except Exception as e:
+        logger.warning(
+            f"Failed to calculate dynamic max_response_tokens: {e}. "
+            f"Falling back to base_max_response_tokens={base_max_response_tokens}"
+        )
+        return base_max_response_tokens
 
 
 def format_messages_for_rephrasing(messages: List[Dict[str, str]]) -> str:
@@ -215,12 +263,21 @@ async def rephrase_query_with_context(
         
         logger.debug(f"Rephrasing query: '{current_query}'")
         
-        # Call LLM for rephrasing
+        # Calculate dynamic max_response_tokens based on input query length
+        dynamic_max_response_tokens = calculate_dynamic_max_response_tokens(
+            query=current_query,
+            llm_endpoint=llm_endpoint,
+            base_max_response_tokens=settings.query_rephrasing.max_response_tokens,
+            multiplier=settings.query_rephrasing.max_response_tokens_multiplier,
+            system_max_query_length=settings.chatbot.max_query_token_length
+        )
+        
+        # Call LLM for rephrasing with dynamic max_response_tokens
         rephrased_query = call_llm_for_rephrasing(
             prompt=prompt,
             llm_endpoint=llm_endpoint,
             llm_model=llm_model,
-            max_tokens=settings.query_rephrasing.max_tokens,
+            max_tokens=dynamic_max_response_tokens,
             temperature=settings.query_rephrasing.temperature,
             timeout=settings.query_rephrasing.timeout_seconds
         )
