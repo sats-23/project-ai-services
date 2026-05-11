@@ -102,8 +102,12 @@ async function customSendMessage(
     { role: 'user', content: userInput },
   ];
 
+  // Apply sliding window: keep only last 10 messages for API payload
+  const SLIDING_WINDOW_SIZE = 10;
+  const recentMessages = updatedHistory.slice(-SLIDING_WINDOW_SIZE);
+
   const payload = {
-    messages: updatedHistory,
+    messages: recentMessages,
     model: 'ibm-granite/granite-3.3-8b-instruct',
     temperature: 0.0,
     stream: true,
