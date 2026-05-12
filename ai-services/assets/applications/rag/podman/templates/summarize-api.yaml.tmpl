@@ -36,7 +36,10 @@ spec:
           value: "{{ .Values.summarize.log_level}}"
         {{- if .Values.instruct.apiKey }}
         - name: VLLM_API_KEY
-          value: "{{ .Values.instruct.apiKey }}"
+          valueFrom:
+            secretKeyRef:
+              name: vllm-instruct-secret
+              key: api-key
         {{- end }}
       resources:
         requests:

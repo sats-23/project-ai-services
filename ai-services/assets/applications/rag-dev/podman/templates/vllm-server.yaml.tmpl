@@ -64,7 +64,10 @@ spec:
           value: "12355"
         {{- if .Values.instruct.apiKey }}
         - name: VLLM_API_KEY
-          value: "{{ .Values.instruct.apiKey }}"
+          valueFrom:
+            secretKeyRef:
+              name: vllm-instruct-secret
+              key: api-key
         {{- end }}
         {{- /* Check if .env.instruct exists and is a non-empty map */}}
         {{- with .env.instruct }}

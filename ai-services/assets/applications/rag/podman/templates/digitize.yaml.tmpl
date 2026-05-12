@@ -94,7 +94,10 @@ spec:
           value: "{{ .Values.digitize.log_level }}"
         {{- if .Values.instruct.apiKey }}
         - name: VLLM_API_KEY
-          value: "{{ .Values.instruct.apiKey }}"
+          valueFrom:
+            secretKeyRef:
+              name: vllm-instruct-secret
+              key: api-key
         {{- end }}
       volumeMounts:
         - mountPath: /var/cache:z
