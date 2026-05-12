@@ -26,7 +26,7 @@ from common.diagnostic_logger import setup_comprehensive_crash_handler
 import common.db_utils as db
 from common.lang_utils import setup_language_detector, detect_language, lang_de, max_tokens_map
 from common.misc_utils import get_model_endpoints, set_request_id, create_llm_session, configure_uvicorn_logging
-from common.llm_utils import query_vllm_stream, query_vllm_non_stream, query_vllm_models
+from common.llm_utils import query_vllm_stream, query_vllm_non_stream, query_vllm_models, tokenize_with_llm
 from common.perf_utils import perf_registry
 from common.error_utils import APIError, ErrorCode, http_error_responses, http_exception_handler
 from chatbot.backend_utils import search_only, validate_query_length
@@ -384,7 +384,7 @@ async def chat_completion(req: ChatCompletionRequest, credentials: Optional[HTTP
                 truncate_history_by_tokens,
                 previous_messages,
                 settings.query_rephrasing.history_token_budget,
-                llm_endpoint
+                lambda text: tokenize_with_llm(text, llm_endpoint)
             )
             
             if truncated_history_for_rephrasing:
