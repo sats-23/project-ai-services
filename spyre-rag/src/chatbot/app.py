@@ -393,6 +393,7 @@ async def chat_completion(req: ChatCompletionRequest, credentials: Optional[HTTP
                     previous_messages=truncated_history_for_rephrasing,
                     llm_endpoint=llm_endpoint,
                     llm_model=llm_model,
+                    api_key=api_key,
                 )
 
         docs, perf_stat_dict = await asyncio.to_thread(

@@ -12,7 +12,7 @@ from typing import List, Dict, Optional
 
 from common.misc_utils import get_logger
 from common.retry_utils import retry_on_transient_error
-from common.llm_utils import tokenize_with_llm
+from common.llm_utils import tokenize_with_llm, get_vllm_headers
 import common.misc_utils as misc_utils
 
 logger = get_logger("query_rephrasing")
@@ -108,7 +108,8 @@ def call_llm_for_rephrasing(
     llm_model: str,
     max_tokens: int = 100,
     temperature: float = 0.0,
-    timeout: float = 5.0
+    timeout: float = 5.0,
+    api_key: str | None = None
 ) -> str:
     """
     Call LLM to rephrase a query.
@@ -120,6 +121,7 @@ def call_llm_for_rephrasing(
         max_tokens: Maximum tokens for response
         temperature: Temperature for generation (0.0 = deterministic)
         timeout: Request timeout in seconds
+        api_key: Optional API key for vLLM authentication
     
     Returns:
         Rephrased query string
@@ -144,9 +146,12 @@ def call_llm_for_rephrasing(
     
     logger.debug(f"Calling LLM for query rephrasing with timeout={timeout}s")
     
+    headers = get_vllm_headers(api_key)
+    
     response = misc_utils.SESSION.post(
         f"{llm_endpoint}/v1/chat/completions",
         json=payload,
+        headers=headers,
         timeout=timeout
     )
     response.raise_for_status()
@@ -189,7 +194,8 @@ async def rephrase_query_with_context(
     previous_messages: List[Dict[str, str]],
     llm_endpoint: str,
     llm_model: str,
-    config: Optional[Dict] = None
+    config: Optional[Dict] = None,
+    api_key: str | None = None
 ) -> str:
     """
     Rephrase a conversational query to be self-contained using conversation context.
@@ -212,6 +218,7 @@ async def rephrase_query_with_context(
                - timeout_seconds (float): Timeout for LLM call (default: 5.0)
                - max_tokens (int): Max tokens for rephrased query (default: 100)
                - temperature (float): Temperature for generation (default: 0.0)
+        api_key: Optional API key for vLLM authentication
     
     Returns:
         Rephrased query string (or original query if rephrasing is skipped/fails)
@@ -279,7 +286,8 @@ async def rephrase_query_with_context(
             llm_model=llm_model,
             max_tokens=dynamic_max_response_tokens,
             temperature=settings.query_rephrasing.temperature,
-            timeout=settings.query_rephrasing.timeout_seconds
+            timeout=settings.query_rephrasing.timeout_seconds,
+            api_key=api_key
         )
         
         # Calculate latency
