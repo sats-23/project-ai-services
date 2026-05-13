@@ -6,7 +6,7 @@ from typing import Optional
 from fastapi import FastAPI, Request, HTTPException, Header, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.openapi.docs import get_swagger_ui_html
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse, Response
 import json
 from contextlib import asynccontextmanager
 from asyncio import BoundedSemaphore
@@ -317,7 +317,7 @@ async def locked_stream(stream_g, perf_stat_dict):
         503: http_error_responses[503]
     }
 )
-async def chat_completion(req: ChatCompletionRequest, credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> ChatCompletionResponse | StreamingResponse:
+async def chat_completion(req: ChatCompletionRequest, credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> ChatCompletionResponse | StreamingResponse | Response:
     # Extract API key from credentials
     api_key = credentials.credentials if credentials else None
     
@@ -489,8 +489,9 @@ async def chat_completion(req: ChatCompletionRequest, credentials: Optional[HTTP
                 response_data = ChatCompletionResponse(choices=choices)
                 # Add rephrased query as a custom header if available
                 if rephrased_query and rephrased_query != current_query:
-                    return JSONResponse(
-                        content=response_data.model_dump(),
+                    return Response(
+                        content=response_data.model_dump_json(),
+                        media_type="application/json",
                         headers={"X-Rephrased-Query": rephrased_query}
                     )
                 return response_data
