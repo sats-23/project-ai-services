@@ -49,6 +49,21 @@ func PrintInfo(tp templates.Template, runtime runtime.Runtime, app, appTemplate 
 		values = make(map[string]interface{})
 	}
 
+	// DEBUG: Print loaded values
+	logger.Infof("DEBUG: Loaded values: %+v\n", values)
+
+	// DEBUG: Check if instruct.apiKey exists
+	if instructMap, ok := values["instruct"].(map[string]interface{}); ok {
+		logger.Infof("DEBUG: instruct map found: %+v\n", instructMap)
+		if apiKey, exists := instructMap["apiKey"]; exists {
+			logger.Infof("DEBUG: instruct.apiKey value: '%v'\n", apiKey)
+		} else {
+			logger.Infof("DEBUG: instruct.apiKey key not found in instruct map\n")
+		}
+	} else {
+		logger.Infof("DEBUG: instruct key not found or not a map in values\n")
+	}
+
 	if err := renderStepsMarkdown(tp, runtime, appTemplate, params, values, infoMDFile, infoTitle); err != nil {
 		logger.Infof("Unable to load steps: %v\n", err)
 
@@ -226,6 +241,20 @@ func renderStepsMarkdown(tp templates.Template, runtime runtime.Runtime, appTemp
 	// Merge params into templateData
 	for k, v := range params {
 		templateData[k] = v
+	}
+
+	// DEBUG: Print template data structure
+	logger.Infof("DEBUG: Values in templateData: %+v\n", templateData["Values"])
+
+	// DEBUG: Check if Values.instruct.apiKey is accessible
+	if valuesMap, ok := templateData["Values"].(map[string]interface{}); ok {
+		if instructMap, ok := valuesMap["instruct"].(map[string]interface{}); ok {
+			logger.Infof("DEBUG: templateData.Values.instruct.apiKey = '%v'\n", instructMap["apiKey"])
+		} else {
+			logger.Infof("DEBUG: instruct not found in Values or not a map\n")
+		}
+	} else {
+		logger.Infof("DEBUG: Values not found in templateData or not a map\n")
 	}
 
 	var rendered bytes.Buffer
