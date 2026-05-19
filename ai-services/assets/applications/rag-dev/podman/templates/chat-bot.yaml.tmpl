@@ -100,6 +100,10 @@ spec:
           value: "{{ .Values.chatbot.numChunksPostReranker }}"
         - name: CHATBOT_RERANK
           value: "{{ .Values.chatbot.rerank }}"
+        {{- if .Values.backend.conversationalRagInitialSystemMessage }}
+        - name: CHATBOT_CONVERSATIONAL_RAG_INITIAL_SYSTEM_MESSAGE
+          value: "{{ .Values.backend.conversationalRagInitialSystemMessage }}"
+        {{- end }}
       ports:
         - containerPort: 5000
           protocol: TCP

@@ -228,6 +228,11 @@ class RAGConfig(BaseSettings):
         description="German prompt template for query streaming",
     )
 
+    llm_validate_custom_system_prompt: bool = Field(
+        default=True,
+        description="Enable/disable LLM-based validation for custom system prompts"
+    )
+
     @field_validator('score_threshold')
     @classmethod
     def validate_score_threshold(cls, v):
@@ -263,6 +268,77 @@ class RAGConfig(BaseSettings):
             logger.warning(f"Setting prompt_template_token_count to default '250' as it is missing in the settings")
             return 250
         return v
+    @field_validator('conversational_rag_initial_system_message', mode='after')
+    @classmethod
+    def validate_conversational_rag_initial_system_message(cls, v, info):
+        """Validate conversational_rag_initial_system_message with warning fallback and LLM validation."""
+        default_prompt = (
+            "You are a helpful, conversational AI assistant. "
+            "Engage naturally with users across multiple turns of conversation. "
+            "Provide clear, accurate, and contextually relevant responses. "
+            "Reference previous exchanges when appropriate to maintain conversation flow."
+        )
+        
+        if not v or not isinstance(v, str):
+            logger.warning(
+                "Invalid conversational_rag_initial_system_message provided. "
+                "Falling back to default system prompt."
+            )
+            return default_prompt
+        
+        # Basic validation: check if prompt is not empty and has reasonable length
+        v_stripped = v.strip()
+        if len(v_stripped) == 0:
+            logger.warning(
+                "Empty conversational_rag_initial_system_message provided. "
+                "Falling back to default system prompt."
+            )
+            return default_prompt
+        
+        if len(v_stripped) < 10:
+            logger.warning(
+                f"conversational_rag_initial_system_message too short ({len(v_stripped)} chars). "
+                "Falling back to default system prompt."
+            )
+            return default_prompt
+        
+        if len(v_stripped) > 5000:
+            logger.warning(
+                f"conversational_rag_initial_system_message too long ({len(v_stripped)} chars). "
+                "Truncating to 5000 characters."
+            )
+            v_stripped = v_stripped[:5000]
+        
+        # LLM-based validation (if enabled)
+        llm_validation_enabled = info.data.get('llm_validate_custom_system_prompt', True)
+        if llm_validation_enabled:
+            try:
+                from chatbot.prompt_validator import validate_prompt_with_llm
+                
+                validation_result = validate_prompt_with_llm(
+                    v_stripped,
+                    prompt_type="initial_system",
+                    enable_semantic_check=True,
+                    enable_injection_check=True
+                )
+                
+                if not validation_result.is_valid():
+                    logger.warning(
+                        f"LLM validation failed for conversational_rag_initial_system_message: "
+                        f"{validation_result.reason} (confidence: {validation_result.confidence:.2f}). "
+                        f"Falling back to default system prompt."
+                    )
+                    return default_prompt
+                
+                logger.info(
+                    f"LLM validation passed for conversational_rag_initial_system_message: "
+                    f"{validation_result.reason}"
+                )
+            except Exception as e:
+                logger.warning(f"Error during LLM validation: {e}. Proceeding with basic validation only.")
+        
+        logger.info("Using custom conversational_rag_initial_system_message from environment")
+        return v_stripped
 
 class Settings(BaseSettings):
     common: CommonSettings = Field(default_factory=CommonSettings)
