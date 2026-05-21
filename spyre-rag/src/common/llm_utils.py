@@ -186,8 +186,7 @@ def query_vllm_payload(
     if chatbot_settings.chatbot.conversational_mode and lang == "EN":
         # Conversational RAG mode with message history
         question_token_count = len(tokenize_with_llm(question, llm_endpoint))
-        context_tokens = tokenize_with_llm(context, llm_endpoint)
-        context_token_count = len(context_tokens)
+        context_token_count = len(tokenize_with_llm(context, llm_endpoint))
 
         llm_max_model_len = resolve_model_max_len(
             llm_endpoint,
@@ -214,7 +213,7 @@ def query_vllm_payload(
             logger.debug(f"Context fits completely ({context_token_count} tokens). History budget: {history_budget} tokens")
         else:
             # Context exceeds budget, truncate context and no history
-            context = detokenize_with_llm(context_tokens[:budget_for_context], llm_endpoint)
+            context = truncate_text_to_token_limit(context, budget_for_context, llm_endpoint)
             history_budget = 0
             previous_messages = None
             logger.debug(f"Context truncated from {context_token_count} to {budget_for_context} tokens. No history included.")
@@ -271,10 +270,7 @@ def query_vllm_payload(
         )
         remaining_tokens = max(0, remaining_tokens)
         
-        context = detokenize_with_llm(
-            tokenize_with_llm(context, llm_endpoint)[:remaining_tokens],
-            llm_endpoint
-        )
+        context = truncate_text_to_token_limit(context, remaining_tokens, llm_endpoint)
         logger.debug(f"Truncated Context: {context}")
 
         # Get the appropriate prompt template based on language and format it
@@ -554,33 +550,62 @@ def tokenize_with_llm(prompt, emb_endpoint, max_retries=3):
 
     return tokens
 
-@retry_on_transient_error(max_retries=3, initial_delay=1.0, backoff_multiplier=2.0)
-def detokenize_with_llm(tokens, emb_endpoint, max_retries=3):
+def truncate_text_to_token_limit(text, token_limit, llm_endpoint):
     """
-    Detokenize tokens using the LLM embedding endpoint with retry logic.
+    This function uses a binary search approach to find the maximum amount of text
+    that fits within the token budget. 
 
     Args:
-        tokens: List of tokens to detokenize
-        emb_endpoint: Embedding endpoint URL
-        max_retries: Maximum number of retry attempts (default: 3)
+        text: Text to truncate
+        token_limit: Maximum number of tokens allowed
+        llm_endpoint: LLM endpoint URL for tokenization
 
     Returns:
-        Detokenized text string
+        Truncated text string that fits within token_limit
 
     Raises:
         RuntimeError: If SESSION is not initialized
-        requests.exceptions.RequestException: If all retries fail
     """
     if misc_utils.SESSION is None:
         raise RuntimeError("LLM session not initialized. Call create_llm_session() first.")
 
-    payload = {
-        "tokens": tokens
-    }
-
-    response = misc_utils.SESSION.post(f"{emb_endpoint}/detokenize", json=payload)
-    response.raise_for_status()
-    result = response.json()
-    prompt = result.get("prompt", "")
-
-    return prompt
+    if not text or token_limit <= 0:
+        return ""
+    
+    current_tokens = tokenize_with_llm(text, llm_endpoint)
+    if len(current_tokens) <= token_limit:
+        return text
+    
+    # Binary search to find the maximum text length that fits within token limit
+    # We search on character positions, not token positions
+    left = 0
+    right = len(text)
+    best_length = 0
+    
+    while left <= right:
+        mid = (left + right) // 2
+        truncated = text[:mid]
+        
+        token_count = len(tokenize_with_llm(truncated, llm_endpoint))
+        
+        if token_count <= token_limit:
+            # This length fits, try to find a longer one
+            best_length = mid
+            left = mid + 1
+        else:
+            # This length is too long, try shorter
+            right = mid - 1
+    
+    # Truncate at the best length found
+    truncated_text = text[:best_length]
+    
+    # Try to truncate at a word boundary for better readability
+    # Look back up to 100 characters for a space
+    if best_length < len(text) and best_length > 100:
+        last_space = truncated_text.rfind(' ', best_length - 100)
+        if last_space > 0:
+            truncated_text = truncated_text[:last_space]
+    
+    logger.debug(f"Truncated text from {len(text)} to {len(truncated_text)} characters to fit {token_limit} tokens")
+    
+    return truncated_text
