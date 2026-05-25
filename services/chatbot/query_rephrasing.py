@@ -175,7 +175,8 @@ async def rephrase_query_with_context(
     llm_endpoint: str,
     llm_model: str,
     config: Optional[Dict] = None,
-    api_key: str | None = None
+    api_key: str | None = None,
+    lang: Optional[str] = None
 ) -> str:
     """
     Rephrase a conversational query to be self-contained using conversation context.
@@ -195,6 +196,7 @@ async def rephrase_query_with_context(
                - max_tokens (int): Max tokens for rephrased query (default: 100)
                - temperature (float): Temperature for generation (default: 0.0)
         api_key: Optional API key for vLLM authentication
+        lang: Optional language code (e.g., "EN", "DE"). If not provided, will detect automatically.
     
     Returns:
         Rephrased query string (or original query if rephrasing is skipped/fails)
@@ -208,11 +210,15 @@ async def rephrase_query_with_context(
         ...     "Is it supported on Power 11?",
         ...     previous,
         ...     "http://llm:8000",
-        ...     "model-name"
+        ...     "model-name",
+        ...     lang="EN"
         ... )
         'Is Spyre supported on Power 11?'
     """
-    if detect_language(current_query) != lang_en:
+    # Use provided lang or detect if not provided
+    detected_lang = lang if lang is not None else detect_language(current_query)
+    
+    if detected_lang != lang_en:
         logger.debug("Query rephrasing skipped: Non-english detected")
         return current_query
 

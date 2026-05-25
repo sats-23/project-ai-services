@@ -372,7 +372,7 @@ async def chat_completion(req: ChatCompletionRequest, credentials: Optional[HTTP
         max_tokens = req.max_tokens
         # giving priority to max_tokens passed in the request, otherwise according to detected language of query
         if not max_tokens:
-            max_tokens = max_tokens_map.get(lang, settings.llm.max_tokens)
+            max_tokens = max_tokens_map.get(lang, settings.llm.max_tokens_en)
 
         rephrased_query = current_query
         
@@ -393,6 +393,7 @@ async def chat_completion(req: ChatCompletionRequest, credentials: Optional[HTTP
                     llm_endpoint=llm_endpoint,
                     llm_model=llm_model,
                     api_key=api_key,
+                    lang=lang,
                 )
 
         docs, perf_stat_dict = await asyncio.to_thread(

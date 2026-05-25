@@ -279,8 +279,8 @@ def query_vllm_payload(
         prompt_template = get_prompt_for_language(
             lang,
             {
-                lang_en: chatbot_settings.chatbot.query_vllm_stream_prompt,
-                lang_de: chatbot_settings.chatbot.query_vllm_stream_de_prompt,
+                lang_en: chatbot_settings.chatbot.legacy_query_vllm_stream_en_prompt,
+                lang_de: chatbot_settings.chatbot.query_vllm_stream_de_prompt
             }
         )
         prompt = prompt_template.format(context=context, question=question)

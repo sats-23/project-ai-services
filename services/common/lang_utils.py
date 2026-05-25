@@ -16,18 +16,16 @@ def get_prompt_for_language(lang: str, prompts: dict[str, str]) -> str:
 
     Args:
         lang: Language code (DE, etc.)
+        prompts: Dictionary mapping language codes to prompt templates
 
     Returns:
         The appropriate prompt template for the language, defaults to EN if not found
     """
-    prompt_map = {
-        lang_de: settings.chatbot.query_vllm_stream_de_prompt,
-    }
-    # Default to legacy English Prompt if language not found in map
-    return prompt_map.get(lang, settings.chatbot.legacy_query_vllm_stream_en_prompt)
+    # Use the prompts dictionary passed as parameter
+    return prompts.get(lang, prompts.get(lang_en, ""))
 
 max_tokens_map = {
-    lang_en: settings.llm.max_tokens,
+    lang_en: settings.llm.max_tokens_en,
     lang_de: settings.llm.max_tokens_de
 }
 
