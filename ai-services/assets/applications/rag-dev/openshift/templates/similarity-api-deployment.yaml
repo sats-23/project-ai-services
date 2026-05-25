@@ -70,8 +70,6 @@ spec:
                   key: password
             - name: LOG_LEVEL
               value: "{{ .Values.similarity.log_level }}"
-            - name: NUM_CHUNKS_POST_SEARCH
-              value: "{{ .Values.chatbot.numChunksPostSearch }}"
           ports:
             - containerPort: 7000
               protocol: TCP

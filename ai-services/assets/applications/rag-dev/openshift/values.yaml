@@ -64,8 +64,6 @@ reranker:
 chatbot:
   # @description Search mode for similarity search. Options: "dense" (cosine similarity), "sparse" (BM25), "hybrid" (both). Default is "dense".
   searchMode: "hybrid"
-  # @description Number of document chunks to retrieve from similarity search. Default is 10.
-  numChunksPostSearch: 10
   # @description Number of document chunks to keep after reranking. Default is 3.
   numChunksPostReranker: 3
   # @description Enable reranking of search results using the reranker model. Default is true.
