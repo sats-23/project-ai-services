@@ -184,7 +184,8 @@ def query_vllm_payload(
     if chatbot_settings.chatbot.conversational_mode and lang == "EN":
         # Conversational RAG mode with message history
         question_token_count = len(tokenize_with_llm(question, llm_endpoint))
-        context_token_count = len(tokenize_with_llm(context, llm_endpoint))
+        context_tokens = tokenize_with_llm(context, llm_endpoint)
+        context_token_count = len(context_tokens)
 
         llm_max_model_len = resolve_model_max_len(
             llm_endpoint,
@@ -211,7 +212,7 @@ def query_vllm_payload(
             logger.debug(f"Context fits completely ({context_token_count} tokens). History budget: {history_budget} tokens")
         else:
             # Context exceeds budget, truncate context and no history
-            context = truncate_text_to_token_limit(context, budget_for_context, llm_endpoint)
+            context = truncate_text_to_token_limit(context, budget_for_context, llm_endpoint, tokens=context_tokens)
             history_budget = 0
             previous_messages = None
             logger.debug(f"Context truncated from {context_token_count} to {budget_for_context} tokens. No history included.")
@@ -556,7 +557,7 @@ def tokenize_with_llm(prompt, emb_endpoint, max_retries=3):
 
     return tokens
 
-def truncate_text_to_token_limit(text, token_limit, llm_endpoint):
+def truncate_text_to_token_limit(text, token_limit, llm_endpoint, tokens=None):
     """
     This function uses a character ratio approach to truncate text to fit within
     the token budget. It estimates the character limit based on the token-to-character
@@ -566,6 +567,7 @@ def truncate_text_to_token_limit(text, token_limit, llm_endpoint):
         text: Text to truncate
         token_limit: Maximum number of tokens allowed
         llm_endpoint: LLM endpoint URL for tokenization
+        tokens: Optional pre-computed tokens for the text
 
     Returns:
         Truncated text string that fits within token_limit
@@ -579,8 +581,9 @@ def truncate_text_to_token_limit(text, token_limit, llm_endpoint):
     if not text or token_limit <= 0:
         return ""
     
-    # Get tokens for the full text
-    tokens = tokenize_with_llm(text, llm_endpoint)
+    # Use pre-computed tokens if provided, otherwise tokenize
+    if tokens is None:
+        tokens = tokenize_with_llm(text, llm_endpoint)
     
     # If truncation is not needed, return original text
     if len(tokens) <= token_limit:
