@@ -28,8 +28,8 @@ spec:
           value: "7000"
         - name: CHATBOT_SEARCH_MODE
           value: "{{ .Values.chatbot.searchMode }}"
-        - name: CHATBOT_NUM_CHUNKS_POST_SEARCH
-          value: "{{ .Values.chatbot.numChunksPostSearch }}"
+        - name: CHATBOT_NUM_CHUNKS_POST_RERANKER
+          value: "{{ .Values.chatbot.numChunksPostReranker }}"
         - name: CHATBOT_RERANK
           value: "{{ .Values.chatbot.rerank }}"
       ports:
