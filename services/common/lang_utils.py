@@ -25,7 +25,7 @@ def get_prompt_for_language(lang: str, prompts: dict[str, str]) -> str:
     return prompts.get(lang, prompts.get(lang_en, ""))
 
 max_tokens_map = {
-    lang_en: settings.llm.max_tokens_en,
+    lang_en: settings.llm.max_tokens,
     lang_de: settings.llm.max_tokens_de
 }
 

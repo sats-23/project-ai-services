@@ -49,7 +49,7 @@ class LLMConfig(BaseSettings):
         description="API key for vLLM authentication (optional, read from LLM_API_KEY env var)",
     )
 
-    max_tokens_en: int = Field(
+    max_tokens: int = Field(
         default=512,
         gt=0,
         description="Maximum tokens for LLM generation (English)",
@@ -61,12 +61,12 @@ class LLMConfig(BaseSettings):
         description="Maximum tokens for LLM generation (German)",
     )
 
-    @field_validator('max_tokens_en')
+    @field_validator('max_tokens')
     @classmethod
-    def validate_max_tokens_en(cls, v):
-        """Validate max_tokens_en with warning fallback."""
+    def validate_max_tokens(cls, v):
+        """Validate max_tokens with warning fallback."""
         if not (isinstance(v, int) and v > 0):
-            logger.warning("Setting max_tokens_en to default '512' as it is missing or malformed in the settings")
+            logger.warning("Setting max_tokens to default '512' as it is missing or malformed in the settings")
             return 512
         return v
 
