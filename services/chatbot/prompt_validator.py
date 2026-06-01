@@ -96,6 +96,65 @@ def _call_llm_for_validation(prompt: str, validation_type: str) -> str:
         return ""
 
 
+def _parse_validation_response(
+    response_text: str,
+    valid_verdict: str,
+    invalid_verdict: str,
+    invalid_result_type: ValidationResult,
+    validation_type: str
+) -> PromptValidationResponse:
+    """
+    Parse LLM validation response in standard format.
+    
+    Args:
+        response_text: Raw response text from LLM
+        valid_verdict: Expected verdict string for valid result (e.g., "VALID", "SAFE")
+        invalid_verdict: Expected verdict string for invalid result (e.g., "INVALID", "UNSAFE")
+        invalid_result_type: ValidationResult enum to return for invalid verdict
+        validation_type: Type of validation for logging (e.g., "Semantic", "Injection Detection")
+    
+    Returns:
+        PromptValidationResponse with parsed result
+    """
+    try:
+        lines = response_text.strip().split('\n')
+        verdict = None
+        reason = ""
+        confidence = 0.0
+        
+        for line in lines:
+            line = line.strip()
+            if line.startswith("VERDICT:"):
+                verdict = line.split(":", 1)[1].strip().upper()
+            elif line.startswith("REASON:"):
+                reason = line.split(":", 1)[1].strip()
+            elif line.startswith("CONFIDENCE:"):
+                try:
+                    confidence = float(line.split(":", 1)[1].strip())
+                except ValueError:
+                    confidence = 0.5
+        
+        if verdict == valid_verdict.upper():
+            logger.debug(f"{validation_type} validation passed with confidence: {confidence:.2f}")
+            return PromptValidationResponse(ValidationResult.VALID, reason, confidence)
+        elif verdict == invalid_verdict.upper():
+            logger.debug(f"{validation_type} validation failed with confidence: {confidence:.2f}")
+            return PromptValidationResponse(invalid_result_type, reason, confidence)
+        else:
+            logger.warning(f"Unexpected verdict from LLM: {verdict}")
+            return PromptValidationResponse(
+                ValidationResult.VALIDATION_ERROR,
+                f"Could not parse LLM {validation_type.lower()} response"
+            )
+            
+    except Exception as e:
+        logger.error(f"Error parsing {validation_type.lower()} response: {e}")
+        return PromptValidationResponse(
+            ValidationResult.VALIDATION_ERROR,
+            f"Error parsing validation response: {str(e)}"
+        )
+
+
 def validate_semantic_quality(prompt: str, prompt_type: str = "system") -> PromptValidationResponse:
     """
     Validate the semantic quality and appropriateness of a custom prompt using LLM.
@@ -145,44 +204,14 @@ CONFIDENCE: 0.88"""
             "LLM validation unavailable, using basic validation only"
         )
     
-    # Parse response
-    try:
-        lines = response_text.strip().split('\n')
-        verdict = None
-        reason = ""
-        confidence = 0.0
-        
-        for line in lines:
-            line = line.strip()
-            if line.startswith("VERDICT:"):
-                verdict = line.split(":", 1)[1].strip().upper()
-            elif line.startswith("REASON:"):
-                reason = line.split(":", 1)[1].strip()
-            elif line.startswith("CONFIDENCE:"):
-                try:
-                    confidence = float(line.split(":", 1)[1].strip())
-                except ValueError:
-                    confidence = 0.5
-        
-        if verdict == "VALID":
-            logger.debug(f"Semantic validation passed with confidence: {confidence:.2f}")
-            return PromptValidationResponse(ValidationResult.VALID, reason, confidence)
-        elif verdict == "INVALID":
-            logger.debug(f"Semantic validation failed with confidence: {confidence:.2f}")
-            return PromptValidationResponse(ValidationResult.INVALID_SEMANTIC, reason, confidence)
-        else:
-            logger.warning(f"Unexpected verdict from LLM: {verdict}")
-            return PromptValidationResponse(
-                ValidationResult.VALIDATION_ERROR,
-                "Could not parse LLM validation response"
-            )
-            
-    except Exception as e:
-        logger.error(f"Error parsing semantic validation response: {e}")
-        return PromptValidationResponse(
-            ValidationResult.VALIDATION_ERROR,
-            f"Error parsing validation response: {str(e)}"
-        )
+    # Parse response using shared method
+    return _parse_validation_response(
+        response_text,
+        valid_verdict="VALID",
+        invalid_verdict="INVALID",
+        invalid_result_type=ValidationResult.INVALID_SEMANTIC,
+        validation_type="Semantic"
+    )
 
 
 def detect_prompt_injection(prompt: str) -> PromptValidationResponse:
@@ -234,44 +263,14 @@ CONFIDENCE: 0.95"""
             "LLM injection detection unavailable, using basic validation only"
         )
     
-    # Parse response
-    try:
-        lines = response_text.strip().split('\n')
-        verdict = None
-        reason = ""
-        confidence = 0.0
-        
-        for line in lines:
-            line = line.strip()
-            if line.startswith("VERDICT:"):
-                verdict = line.split(":", 1)[1].strip().upper()
-            elif line.startswith("REASON:"):
-                reason = line.split(":", 1)[1].strip()
-            elif line.startswith("CONFIDENCE:"):
-                try:
-                    confidence = float(line.split(":", 1)[1].strip())
-                except ValueError:
-                    confidence = 0.5
-        
-        if verdict == "SAFE":
-            logger.debug(f"Injection detection passed with confidence: {confidence:.2f}")
-            return PromptValidationResponse(ValidationResult.VALID, reason, confidence)
-        elif verdict == "UNSAFE":
-            logger.debug(f"Injection detection failed with confidence: {confidence:.2f}")
-            return PromptValidationResponse(ValidationResult.INVALID_INJECTION, reason, confidence)
-        else:
-            logger.warning(f"Unexpected verdict from LLM: {verdict}")
-            return PromptValidationResponse(
-                ValidationResult.VALIDATION_ERROR,
-                "Could not parse LLM injection detection response"
-            )
-            
-    except Exception as e:
-        logger.error(f"Error parsing injection detection response: {e}")
-        return PromptValidationResponse(
-            ValidationResult.VALIDATION_ERROR,
-            f"Error parsing detection response: {str(e)}"
-        )
+    # Parse response using shared method
+    return _parse_validation_response(
+        response_text,
+        valid_verdict="SAFE",
+        invalid_verdict="UNSAFE",
+        invalid_result_type=ValidationResult.INVALID_INJECTION,
+        validation_type="Injection Detection"
+    )
 
 
 def validate_prompt_with_llm(
