@@ -20,7 +20,7 @@ class ValidationResult(Enum):
     """Validation result status."""
     VALID = "valid"
     INVALID_SEMANTIC = "invalid_semantic"
-    INVALID_INJECTION = "invalid_injection"
+    UNSAFE_INJECTION = "unsafe_injection"
     VALIDATION_ERROR = "validation_error"
     VALIDATION_DISABLED = "validation_disabled"
 
@@ -226,7 +226,7 @@ def detect_prompt_injection(prompt: str) -> PromptValidationResponse:
         response_text,
         valid_verdict="SAFE",
         invalid_verdict="UNSAFE",
-        invalid_result_type=ValidationResult.INVALID_INJECTION,
+        invalid_result_type=ValidationResult.UNSAFE_INJECTION,
         validation_type="Injection Detection"
     )
 
