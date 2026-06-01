@@ -343,7 +343,7 @@ class RAGConfig(BaseSettings):
                 if not validation_result.is_valid():
                     logger.warning(
                         f"LLM validation failed for system_prompt: "
-                        f"{validation_result.reason} (confidence: {validation_result.confidence:.2f}). "
+                        f"{validation_result.reason}. "
                         f"Falling back to default system prompt."
                     )
                     return default_prompt

@@ -28,20 +28,20 @@ class ValidationResult(Enum):
 class PromptValidationResponse:
     """Response from prompt validation."""
     
-    def __init__(self, result: ValidationResult, reason: str = "", confidence: float = 0.0):
+    def __init__(self, result: ValidationResult, reason: str = "", _confidence: float = 0.0):
         self.result = result
         self.reason = reason
-        self.confidence = confidence
+        self._confidence = _confidence
     
     def is_valid(self) -> bool:
         """Check if validation passed."""
         return self.result in [ValidationResult.VALID, ValidationResult.VALIDATION_DISABLED]
     
     def __repr__(self):
-        return f"PromptValidationResponse(result={self.result.value}, reason='{self.reason}', confidence={self.confidence})"
+        return f"PromptValidationResponse(result={self.result.value}, reason='{self.reason}')"
 
 
-def _call_llm_for_validation(prompt: str, validation_type: str) -> Tuple[str, float]:
+def _call_llm_for_validation(prompt: str, validation_type: str) -> str:
     """
     Internal function to call LLM for validation.
     
@@ -50,11 +50,11 @@ def _call_llm_for_validation(prompt: str, validation_type: str) -> Tuple[str, fl
         validation_type: Type of validation (for logging)
     
     Returns:
-        Tuple of (response_text, confidence_score)
+        Response text from LLM
     """
     if misc_utils.SESSION is None:
         logger.warning("LLM session not initialized. Skipping LLM-based validation.")
-        return "", 0.0
+        return ""
     
     llm_endpoint = settings.llm.endpoint
     llm_model = settings.llm.model
@@ -62,7 +62,7 @@ def _call_llm_for_validation(prompt: str, validation_type: str) -> Tuple[str, fl
     
     if not llm_endpoint or not llm_model:
         logger.warning("LLM endpoint or model not configured. Skipping LLM-based validation.")
-        return "", 0.0
+        return ""
     
     payload = {
         "model": llm_model,
@@ -85,15 +85,15 @@ def _call_llm_for_validation(prompt: str, validation_type: str) -> Tuple[str, fl
         
         if not choices:
             logger.warning(f"{validation_type} validation: No response from LLM")
-            return "", 0.0
+            return ""
         
         text = (choices[0].get("message", {}).get("content") or "").strip()
         logger.debug(f"{validation_type} validation response: {text}")
-        return text, 1.0
+        return text
         
     except Exception as e:
         logger.error(f"Error during {validation_type} validation: {e}")
-        return "", 0.0
+        return ""
 
 
 def validate_semantic_quality(prompt: str, prompt_type: str = "system") -> PromptValidationResponse:
@@ -136,7 +136,7 @@ VERDICT: INVALID
 REASON: The prompt contains contradictory instructions about being both formal and casual.
 CONFIDENCE: 0.88"""
 
-    response_text, _ = _call_llm_for_validation(validation_prompt, "Semantic")
+    response_text = _call_llm_for_validation(validation_prompt, "Semantic")
     
     if not response_text:
         # If LLM validation fails, return disabled status (allows fallback to basic validation)
@@ -165,8 +165,10 @@ CONFIDENCE: 0.88"""
                     confidence = 0.5
         
         if verdict == "VALID":
+            logger.debug(f"Semantic validation passed with confidence: {confidence:.2f}")
             return PromptValidationResponse(ValidationResult.VALID, reason, confidence)
         elif verdict == "INVALID":
+            logger.debug(f"Semantic validation failed with confidence: {confidence:.2f}")
             return PromptValidationResponse(ValidationResult.INVALID_SEMANTIC, reason, confidence)
         else:
             logger.warning(f"Unexpected verdict from LLM: {verdict}")
@@ -223,7 +225,7 @@ VERDICT: UNSAFE
 REASON: Contains role manipulation attempt with "ignore previous instructions" pattern.
 CONFIDENCE: 0.95"""
 
-    response_text, _ = _call_llm_for_validation(validation_prompt, "Injection Detection")
+    response_text = _call_llm_for_validation(validation_prompt, "Injection Detection")
     
     if not response_text:
         # If LLM validation fails, return disabled status (allows fallback to basic validation)
@@ -252,8 +254,10 @@ CONFIDENCE: 0.95"""
                     confidence = 0.5
         
         if verdict == "SAFE":
+            logger.debug(f"Injection detection passed with confidence: {confidence:.2f}")
             return PromptValidationResponse(ValidationResult.VALID, reason, confidence)
         elif verdict == "UNSAFE":
+            logger.debug(f"Injection detection failed with confidence: {confidence:.2f}")
             return PromptValidationResponse(ValidationResult.INVALID_INJECTION, reason, confidence)
         else:
             logger.warning(f"Unexpected verdict from LLM: {verdict}")
@@ -296,10 +300,13 @@ def validate_prompt_with_llm(
         if not injection_result.is_valid():
             logger.warning(
                 f"Prompt injection detected: {injection_result.reason} "
-                f"(confidence: {injection_result.confidence:.2f})"
+                f"(confidence: {injection_result._confidence:.2f})"
             )
             return injection_result
-        logger.info(f"Injection check passed: {injection_result.reason}")
+        logger.info(
+            f"Injection check passed: {injection_result.reason} "
+            f"(confidence: {injection_result._confidence:.2f})"
+        )
     
     # Then check semantic quality
     if enable_semantic_check:
@@ -307,10 +314,13 @@ def validate_prompt_with_llm(
         if not semantic_result.is_valid():
             logger.warning(
                 f"Semantic validation failed: {semantic_result.reason} "
-                f"(confidence: {semantic_result.confidence:.2f})"
+                f"(confidence: {semantic_result._confidence:.2f})"
             )
             return semantic_result
-        logger.info(f"Semantic check passed: {semantic_result.reason}")
+        logger.info(
+            f"Semantic check passed: {semantic_result.reason} "
+            f"(confidence: {semantic_result._confidence:.2f})"
+        )
     
     # All checks passed
     return PromptValidationResponse(
