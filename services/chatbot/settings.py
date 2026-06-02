@@ -280,20 +280,9 @@ class RAGConfig(BaseSettings):
             "Reference previous exchanges when appropriate to maintain conversation flow."
         )
         
-        if not v or not isinstance(v, str):
-            logger.warning(
-                "Invalid system_prompt provided. "
-                "Falling back to default system prompt."
-            )
-            return default_prompt
-        
         # Basic validation: check if prompt is not empty and has reasonable length
         v_stripped = v.strip()
         if len(v_stripped) == 0:
-            logger.warning(
-                "Empty system_prompt provided. "
-                "Falling back to default system prompt."
-            )
             return default_prompt
         
         if len(v_stripped) < 10:
