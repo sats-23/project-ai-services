@@ -102,7 +102,14 @@ func (pc *PodmanClient) ListImages() ([]types.Image, error) {
 
 func (pc *PodmanClient) PullImage(image string) error {
 	logger.Infof("Pulling image %s...\n", image)
-	_, err := images.Pull(pc.Context, image, nil)
+
+	// Create pull options with auth file from environment
+	opts := &images.PullOptions{}
+	if authFile := os.Getenv("REGISTRY_AUTH_FILE"); authFile != "" {
+		opts.Authfile = &authFile
+	}
+
+	_, err := images.Pull(pc.Context, image, opts)
 	if err != nil {
 		return fmt.Errorf("failed to pull image %s: %w", image, err)
 	}

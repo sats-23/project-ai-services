@@ -35,7 +35,7 @@ const (
 )
 
 // DeployCatalog deploys the catalog service using the assets/catalog template for podman runtime.
-func DeployCatalog(ctx context.Context, podmanURI, passwordHash, baseDir string, argParams map[string]string, httpsPort int) error {
+func DeployCatalog(ctx context.Context, podmanURI, authFilePath, passwordHash, baseDir string, argParams map[string]string, httpsPort int) error {
 	s := spinner.New("Deploying catalog service...")
 	s.Start(ctx)
 
@@ -77,7 +77,7 @@ func DeployCatalog(ctx context.Context, podmanURI, passwordHash, baseDir string,
 	}
 
 	// Prepare values with configure-specific configuration
-	values, err := prepareCatalogValues(tp, podmanURI, passwordHash, argParams)
+	values, err := prepareCatalogValues(tp, podmanURI, authFilePath, passwordHash, argParams)
 	if err != nil {
 		s.Fail("failed to load values")
 
@@ -157,7 +157,7 @@ func loadCatalogTemplates(s *spinner.Spinner) (templates.Template, *templates.Ap
 }
 
 // prepareCatalogValues prepares the values map with configure-specific configuration.
-func prepareCatalogValues(tp templates.Template, podmanURI, passwordHash string, argParams map[string]string) (map[string]any, error) {
+func prepareCatalogValues(tp templates.Template, podmanURI, authFilePath, passwordHash string, argParams map[string]string) (map[string]any, error) {
 	// Generate database password
 	dbPassword, err := utils.GenerateRandomPassword(utils.DefaultPasswordLength)
 	if err != nil {
@@ -167,10 +167,20 @@ func prepareCatalogValues(tp templates.Template, podmanURI, passwordHash string,
 	// Base64 encode the database password for Kubernetes secret
 	dbPasswordBase64 := base64.StdEncoding.EncodeToString([]byte(dbPassword))
 
+	// Read and encode auth file content for secret
+	authFileContent, err := os.ReadFile(authFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read auth file from %s: %w", authFilePath, err)
+	}
+
+	// Base64 encode the auth file content for Kubernetes secret
+	authFileBase64 := base64.StdEncoding.EncodeToString(authFileContent)
+
 	// Set configure-specific values
 	argParams["backend.adminPasswordHash"] = passwordHash
 	argParams["backend.runtime"] = "podman"
 	argParams["backend.podman.uri"] = podmanURI
+	argParams["backend.podman.authFileContent"] = authFileBase64
 	argParams["db.password"] = dbPasswordBase64
 
 	// Load values from catalog
