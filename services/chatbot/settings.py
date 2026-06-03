@@ -2,6 +2,7 @@
 Configuration settings for Chatbot/RAG service.
 These values can be overridden via environment variables.
 """
+from typing import ClassVar
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -10,7 +11,6 @@ import common.misc_utils as misc_utils
 from common.settings import Settings as CommonSettings
 
 logger = get_logger("settings")
-
 
 class QueryRephrasingConfig(BaseSettings):
     """Query rephrasing configuration for conversational RAG."""
@@ -123,6 +123,13 @@ class RAGConfig(BaseSettings):
     """RAG retrieval and ranking settings."""
     
     model_config = SettingsConfigDict(env_prefix="CHATBOT_")
+    DEFAULT_SYSTEM_PROMPT: ClassVar[str] = (
+        "You are a helpful, conversational AI assistant. "
+        "Engage naturally with users across multiple turns of conversation. "
+        "Provide clear, accurate, and contextually relevant responses. "
+        "Reference previous exchanges when appropriate to maintain conversation flow."
+        "Answer only the specific question asked. Do not add conversational filler, offer additional assistance, suggest follow-up steps, or ask follow-up questions at the end of your response. End your response immediately once the question has been answered."
+    )
 
     search_mode: str = Field(
         default="hybrid",
@@ -163,13 +170,7 @@ class RAGConfig(BaseSettings):
     )
 
     system_prompt: str = Field(
-        default=(
-            "You are a helpful, conversational AI assistant. "
-            "Engage naturally with users across multiple turns of conversation. "
-            "Provide clear, accurate, and contextually relevant responses. "
-            "Reference previous exchanges when appropriate to maintain conversation flow."
-            "Answer only the specific question asked. Do not add conversational filler, offer additional assistance, suggest follow-up steps, or ask follow-up questions at the end of your response. End your response immediately once the question has been answered."
-        ),
+        default=DEFAULT_SYSTEM_PROMPT,
         description="Initial system prompt for conversational behavior",
     )
 
@@ -273,12 +274,7 @@ class RAGConfig(BaseSettings):
     @classmethod
     def validate_system_prompt(cls, v, info):
         """Validate system_prompt with language detection, warning fallback and LLM validation."""
-        default_prompt = (
-            "You are a helpful, conversational AI assistant. "
-            "Engage naturally with users across multiple turns of conversation. "
-            "Provide clear, accurate, and contextually relevant responses. "
-            "Reference previous exchanges when appropriate to maintain conversation flow."
-        )
+        default_prompt = cls.DEFAULT_SYSTEM_PROMPT
         
         # Basic validation: check if prompt is not empty and has reasonable length
         v_stripped = v.strip()
