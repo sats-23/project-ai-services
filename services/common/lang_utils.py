@@ -6,8 +6,12 @@ from common.settings import settings
 logger = get_logger("LANG")
 
 _language_detector = None
-lang_en = "EN"
-lang_de = "DE"
+
+# Language codes map
+language_codes = {
+    "English": "EN",
+    "German": "DE"
+}
 
 def get_prompt_for_language(lang: str, prompts: dict[str, str]) -> str:
     """
@@ -22,11 +26,11 @@ def get_prompt_for_language(lang: str, prompts: dict[str, str]) -> str:
         The appropriate prompt template for the language, defaults to EN if not found
     """
     # Use the prompts dictionary passed as parameter
-    return prompts.get(lang, prompts.get(lang_en, ""))
+    return prompts.get(lang, prompts.get(language_codes["English"], ""))
 
 max_tokens_map = {
-    lang_en: settings.llm.max_tokens,
-    lang_de: settings.llm.max_tokens_de
+    language_codes["English"]: settings.llm.max_tokens,
+    language_codes["German"]: settings.llm.max_tokens_de
 }
 
 def setup_language_detector(languages: list[Language]):
@@ -51,10 +55,10 @@ def detect_language(text: str, min_confidence: float = settings.language.languag
 
     if not _language_detector:
         logger.warning("Lingua detector not initialized. Call setup_language_detector() at startup.")
-        return lang_en
+        return language_codes["English"]
 
     confidences = _language_detector.compute_language_confidence_values(text)
     if confidences and confidences[0].value >= min_confidence:
         top = confidences[0]
         return top.language.iso_code_639_1.name
-    return lang_en
+    return language_codes["English"]

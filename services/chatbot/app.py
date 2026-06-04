@@ -24,7 +24,7 @@ set_log_level(settings.common.app.log_level)
 
 from common.diagnostic_logger import setup_comprehensive_crash_handler
 import common.db_utils as db
-from common.lang_utils import setup_language_detector, detect_language, lang_en, lang_de, max_tokens_map
+from common.lang_utils import setup_language_detector, detect_language, language_codes, max_tokens_map
 from common.misc_utils import get_model_endpoints, set_request_id, create_llm_session, configure_uvicorn_logging
 from common.llm_utils import query_vllm_stream, query_vllm_non_stream, query_vllm_models, tokenize_with_llm
 from common.perf_utils import perf_registry
@@ -345,8 +345,8 @@ async def chat_completion(req: ChatCompletionRequest, credentials: Optional[HTTP
         current_query,
     )
     session_lang = detect_language(first_user_message)
-    if session_lang not in {lang_en, lang_de}:
-        session_lang = lang_en
+    if session_lang not in {language_codes["English"], language_codes["German"]}:
+        session_lang = language_codes["English"]
 
     # Ensure vectorstore is initialized on first request
     if vectorstore is None:
@@ -416,7 +416,7 @@ async def chat_completion(req: ChatCompletionRequest, credentials: Optional[HTTP
         
         if not docs:
             message = "No documents found in the knowledge base for this query."
-            if lang == lang_de:
+            if lang == language_codes["German"]:
                 message = "Für diese Anfrage wurden keine Dokumente in der Wissensdatenbank gefunden."
             if req.stream:
                 async def stream_docs_not_found():

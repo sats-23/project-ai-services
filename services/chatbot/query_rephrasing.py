@@ -10,7 +10,7 @@ from typing import List, Dict, Optional
 from common.misc_utils import get_logger
 from common.retry_utils import retry_on_transient_error
 from common.llm_utils import tokenize_with_llm, get_vllm_headers
-from common.lang_utils import detect_language, lang_en, lang_de
+from common.lang_utils import detect_language, language_codes
 import common.misc_utils as misc_utils
 
 logger = get_logger("query_rephrasing")
@@ -63,7 +63,7 @@ def calculate_dynamic_max_response_tokens(
         return base_max_response_tokens
 
 
-def format_messages_for_rephrasing(messages: List[Dict[str, str]], lang: str = lang_en) -> str:
+def format_messages_for_rephrasing(messages: List[Dict[str, str]], lang: str = language_codes["English"]) -> str:
     """
     Format conversation messages into a readable string for rephrasing context.
     """
@@ -71,20 +71,20 @@ def format_messages_for_rephrasing(messages: List[Dict[str, str]], lang: str = l
         return ""
 
     role_labels = {
-        lang_de: {
+        language_codes["German"]: {
             "user": "Benutzer",
             "assistant": "Assistent",
             "system": "System",
             "unknown": "Unbekannt",
         },
-        lang_en: {
+        language_codes["English"]: {
             "user": "User",
             "assistant": "Assistant",
             "system": "System",
             "unknown": "Unknown",
         },
     }
-    labels = role_labels.get(lang, role_labels[lang_en])
+    labels = role_labels.get(lang, role_labels[language_codes["English"]])
 
     formatted_lines = []
     for msg in messages:
@@ -215,7 +215,7 @@ async def rephrase_query_with_context(
     # Use provided lang or detect if not provided
     detected_lang = lang if lang is not None else detect_language(current_query)
     
-    if detected_lang not in {lang_en, lang_de}:
+    if detected_lang not in {language_codes["English"], language_codes["German"]}:
         logger.debug("Query rephrasing skipped: unsupported language detected")
         return current_query
 
@@ -240,7 +240,7 @@ async def rephrase_query_with_context(
         # Get language-specific prompt template from settings
         prompt_template = (
             settings.query_rephrasing.rephrase_prompt_template_de
-            if detected_lang == lang_de
+            if detected_lang == language_codes["German"]
             else settings.query_rephrasing.rephrase_prompt_template_en
         )
         
