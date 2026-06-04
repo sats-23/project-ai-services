@@ -18,6 +18,7 @@ class Document(BaseModel):
 
 class Message(BaseModel):
     """Chat message"""
+    role: str = Field(default="user", description="The role of the message author")
     content: str = Field(..., description="The content of the message")
 
 

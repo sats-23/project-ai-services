@@ -24,7 +24,7 @@ set_log_level(settings.common.app.log_level)
 
 from common.diagnostic_logger import setup_comprehensive_crash_handler
 import common.db_utils as db
-from common.lang_utils import setup_language_detector, detect_language, lang_de, max_tokens_map
+from common.lang_utils import setup_language_detector, detect_language, lang_en, lang_de, max_tokens_map
 from common.misc_utils import get_model_endpoints, set_request_id, create_llm_session, configure_uvicorn_logging
 from common.llm_utils import query_vllm_stream, query_vllm_non_stream, query_vllm_models, tokenize_with_llm
 from common.perf_utils import perf_registry
@@ -340,6 +340,14 @@ async def chat_completion(req: ChatCompletionRequest, credentials: Optional[HTTP
     if not current_query or not current_query.strip():
         APIError.raise_error(ErrorCode.EMPTY_INPUT, "Query cannot be empty")
 
+    first_user_message = next(
+        (message.content for message in req.messages if message.role == "user"),
+        current_query,
+    )
+    session_lang = detect_language(first_user_message)
+    if session_lang not in {lang_en, lang_de}:
+        session_lang = lang_en
+
     # Ensure vectorstore is initialized on first request
     if vectorstore is None:
         await ensure_vectorstore_initialized()
@@ -367,25 +375,24 @@ async def chat_completion(req: ChatCompletionRequest, credentials: Optional[HTTP
                 return StreamingResponse(stream_query_length_error(), media_type="text/event-stream")
             APIError.raise_error(ErrorCode.INVALID_PARAMETER, error_msg)
 
-        lang = detect_language(current_query)
+        lang = session_lang
 
         max_tokens = req.max_tokens
-        # giving priority to max_tokens passed in the request, otherwise according to detected language of query
+        # giving priority to max_tokens passed in the request, otherwise according to session language
         if not max_tokens:
             max_tokens = max_tokens_map.get(lang, settings.llm.max_tokens)
 
         rephrased_query = current_query
         
-        # Process conversation history and rephrase query for English language
-        if previous_messages and lang == "EN":
-            # Truncate history for query rephrasing with 1000 token budget
+        # Process conversation history and rephrase query for supported conversational languages
+        if previous_messages:
             truncated_history_for_rephrasing = await asyncio.to_thread(
                 truncate_history_by_tokens,
                 previous_messages,
                 settings.query_rephrasing.history_token_budget,
                 lambda text: tokenize_with_llm(text, llm_endpoint)
             )
-            
+
             if truncated_history_for_rephrasing:
                 rephrased_query = await rephrase_query_with_context(
                     current_query=current_query,

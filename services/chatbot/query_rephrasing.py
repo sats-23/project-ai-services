@@ -10,7 +10,7 @@ from typing import List, Dict, Optional
 from common.misc_utils import get_logger
 from common.retry_utils import retry_on_transient_error
 from common.llm_utils import tokenize_with_llm, get_vllm_headers
-from common.lang_utils import detect_language, lang_en
+from common.lang_utils import detect_language, lang_en, lang_de
 import common.misc_utils as misc_utils
 
 logger = get_logger("query_rephrasing")
@@ -63,39 +63,36 @@ def calculate_dynamic_max_response_tokens(
         return base_max_response_tokens
 
 
-def format_messages_for_rephrasing(messages: List[Dict[str, str]]) -> str:
+def format_messages_for_rephrasing(messages: List[Dict[str, str]], lang: str = lang_en) -> str:
     """
     Format conversation messages into a readable string for rephrasing context.
-    
-    Args:
-        messages: List of message dicts with 'role' and 'content' keys
-                 (OpenAI message format)
-    
-    Returns:
-        Formatted conversation history string
-    
-    Example:
-        >>> messages = [
-        ...     {"role": "user", "content": "What is Spyre?"},
-        ...     {"role": "assistant", "content": "Spyre is an AI accelerator..."}
-        ... ]
-        >>> format_messages_for_rephrasing(messages)
-        'User: What is Spyre?\\nAssistant: Spyre is an AI accelerator...\\n'
-
-    Will be updated when integrating with UI
     """
     if not messages:
         return ""
-    
+
+    role_labels = {
+        lang_de: {
+            "user": "Benutzer",
+            "assistant": "Assistent",
+            "system": "System",
+            "unknown": "Unbekannt",
+        },
+        lang_en: {
+            "user": "User",
+            "assistant": "Assistant",
+            "system": "System",
+            "unknown": "Unknown",
+        },
+    }
+    labels = role_labels.get(lang, role_labels[lang_en])
+
     formatted_lines = []
     for msg in messages:
-        role = msg.get("role", "unknown")
+        role = (msg.get("role", "unknown") or "unknown").lower()
         content = msg.get("content", "")
-        
-        # Capitalize role for readability
-        role_display = role.capitalize()
+        role_display = labels.get(role, role.capitalize())
         formatted_lines.append(f"{role_display}: {content}")
-    
+
     return "\n".join(formatted_lines)
 
 
@@ -138,7 +135,7 @@ def call_llm_for_rephrasing(
         ],
         "temperature": temperature,
         "max_tokens": max_tokens,
-        "stop": ["\n\n", "Question:", "Current Question:"],
+        "stop": ["\n\n", "Question:", "Current Question:", "Frage:", "Aktuelle Frage:"],
         "stream": False,
     }
     
@@ -218,8 +215,8 @@ async def rephrase_query_with_context(
     # Use provided lang or detect if not provided
     detected_lang = lang if lang is not None else detect_language(current_query)
     
-    if detected_lang != lang_en:
-        logger.debug("Query rephrasing skipped: Non-english detected")
+    if detected_lang not in {lang_en, lang_de}:
+        logger.debug("Query rephrasing skipped: unsupported language detected")
         return current_query
 
     # Get configuration from settings
@@ -234,14 +231,18 @@ async def rephrase_query_with_context(
     
     try:
         # Format conversation history
-        conversation_history = format_messages_for_rephrasing(previous_messages)
+        conversation_history = format_messages_for_rephrasing(previous_messages, detected_lang)
         
         if not conversation_history:
             logger.debug("Skipping query rephrasing: empty conversation history")
             return current_query
         
-        # Get prompt template from settings (already imported above)
-        prompt_template = settings.query_rephrasing.rephrase_prompt_template
+        # Get language-specific prompt template from settings
+        prompt_template = (
+            settings.query_rephrasing.rephrase_prompt_template_de
+            if detected_lang == lang_de
+            else settings.query_rephrasing.rephrase_prompt_template_en
+        )
         
         # Build rephrasing prompt
         prompt = prompt_template.format(

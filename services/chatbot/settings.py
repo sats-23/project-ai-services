@@ -50,7 +50,7 @@ class QueryRephrasingConfig(BaseSettings):
         description="Maximum tokens allocated for conversation history during query rephrasing"
     )
     
-    rephrase_prompt_template: str = Field(
+    rephrase_prompt_template_en: str = Field(
         default=(
             "Given the conversation history and the current question, create a standalone query for semantic search.\n\n"
             "Instructions:\n"
@@ -65,7 +65,25 @@ class QueryRephrasingConfig(BaseSettings):
             "Current Question: {current_query}\n\n"
             "Rephrased Query:"
         ),
-        description="Prompt template for query rephrasing with placeholders: {conversation_history}, {current_query}"
+        description="English prompt template for query rephrasing with placeholders: {conversation_history}, {current_query}"
+    )
+
+    rephrase_prompt_template_de: str = Field(
+        default=(
+            "Erstelle anhand des Gesprächsverlaufs und der aktuellen Frage eine eigenständige Suchanfrage für die semantische Suche.\n\n"
+            "Anweisungen:\n"
+            "1. Wenn die aktuelle Frage bereits eigenständig und klar ist, gib sie GENAU unverändert zurück\n"
+            "2. Wenn die Frage auf vorherigen Kontext verweist (z. B. mit Pronomen wie 'es', 'dies', 'diese', 'sie'), ersetze diese durch konkrete Begriffe aus dem Gesprächsverlauf\n"
+            "3. Füge Kontext nur dann zusammen, wenn die aktuelle Frage eindeutig eine Anschlussfrage ist, die frühere Informationen benötigt\n"
+            "4. Entferne überflüssige Gesprächsfloskeln (z. B. 'Kannst du mir sagen', 'Außerdem', 'Danke', 'Bitte')\n"
+            "5. Halte die Suchanfrage kurz und auf die eigentliche Suchabsicht fokussiert\n"
+            "6. Wenn der Gesprächsverlauf für die aktuelle Frage irrelevant ist, ignoriere ihn\n"
+            "7. Gib NUR die umformulierte Suchanfrage zurück, ohne Erklärung oder zusätzlichen Text\n\n"
+            "Gesprächsverlauf:\n{conversation_history}\n\n"
+            "Aktuelle Frage: {current_query}\n\n"
+            "Umformulierte Suchanfrage:"
+        ),
+        description="German prompt template for query rephrasing with placeholders: {conversation_history}, {current_query}"
     )
 
 
@@ -123,12 +141,24 @@ class RAGConfig(BaseSettings):
     """RAG retrieval and ranking settings."""
     
     model_config = SettingsConfigDict(env_prefix="CHATBOT_")
-    DEFAULT_SYSTEM_PROMPT: ClassVar[str] = (
+    DEFAULT_SYSTEM_PROMPT_EN: ClassVar[str] = (
         "You are a helpful, conversational AI assistant. "
+        "The conversation language is fixed to be English"
         "Engage naturally with users across multiple turns of conversation. "
         "Provide clear, accurate, and contextually relevant responses. "
         "Reference previous exchanges when appropriate to maintain conversation flow."
         "Answer only the specific question asked. Do not add conversational filler, offer additional assistance, suggest follow-up steps, or ask follow-up questions at the end of your response. End your response immediately once the question has been answered."
+    )
+
+    DEFAULT_SYSTEM_PROMPT_DE: ClassVar[str] = (
+        "Sie sind ein hilfreicher, dialogorientierter KI-Assistent. "
+        "Die Gesprächssprache ist für die gesamte Sitzung anhand der ersten Nachricht des Nutzers festgelegt. "
+        "Antworten Sie immer nur in dieser Sitzungssprache, auch wenn spätere Nachrichten Sprachen mischen. "
+        "Geben Sie klare, präzise und kontextbezogene Antworten. "
+        "Beziehen Sie sich bei Bedarf auf frühere Nachrichten, um den Gesprächsfluss aufrechtzuerhalten. "
+        "Beantworten Sie nur die konkret gestellte Frage. Fügen Sie keine Gesprächsfloskeln hinzu, "
+        "bieten Sie keine zusätzliche Hilfe an, schlagen Sie keine nächsten Schritte vor und stellen Sie am Ende keine Rückfragen. "
+        "Beenden Sie Ihre Antwort sofort, sobald die Frage beantwortet ist."
     )
 
     similarity_service_url: str = Field(
@@ -173,19 +203,20 @@ class RAGConfig(BaseSettings):
         description="Maximum token length for user queries",
     )
 
-    prompt_template_token_count: int = Field(
-        default=250,
-        ge=0,
-        description="Estimated token count for query prompt template",
+
+    system_prompt_en: str = Field(
+        default=DEFAULT_SYSTEM_PROMPT_EN,
+        description="English conversational system prompt for session-based behavior",
     )
 
-    system_prompt: str = Field(
-        default=DEFAULT_SYSTEM_PROMPT,
-        description="Initial system prompt for conversational behavior",
+    system_prompt_de: str = Field(
+        default=DEFAULT_SYSTEM_PROMPT_DE,
+        description="German conversational system prompt for session-based behavior",
     )
 
-    query_system_prompt: str = Field(
+    query_system_prompt_en: str = Field(
         default=(
+            "Session language: English\n\n"
             "Retrieved Context:\n{context}\n\n"
             "Rephrased Query: {rephrased_query}\n\n"
             "Instructions: Answer the user's question based on the retrieved context above. "
@@ -194,6 +225,19 @@ class RAGConfig(BaseSettings):
             "If the context doesn't contain enough information, acknowledge this clearly."
         ),
         description="RAG system prompt template with context and rephrased query",
+    )
+
+    query_system_prompt_de: str = Field(
+        default=(
+            "Sitzungssprache: Deutsch\n\n"
+            "Abgerufener Kontext:\n{context}\n\n"
+            "Suchanfrage:\n{rephrased_query}\n\n"
+            "Anweisungen: Beantworten Sie die aktuelle Frage des Nutzers anhand des oben abgerufenen Kontexts. "
+            "Halten Sie einen natürlichen Gesprächsfluss aufrecht und beziehen Sie frühere Gesprächsbeiträge ein, wenn sie relevant sind. "
+            "Antworten Sie ausschließlich auf Deutsch, weil die Sitzungssprache anhand der ersten Nachricht des Nutzers festgelegt wurde. "
+            "Wenn der abgerufene Kontext nicht genügend Informationen enthält, sagen Sie das klar."
+        ),
+        description="German conversational RAG system prompt template with context and search query",
     )
 
     history_token_budget: int = Field(
@@ -214,31 +258,6 @@ class RAGConfig(BaseSettings):
         description="Estimated tokens for RAG system message (excluding context)",
     )
 
-    # Legacy prompt fields retained for compatibility with language prompt helpers.
-    legacy_query_vllm_stream_en_prompt: str = Field(
-        default=(
-            "You are given:\n1. **A short context text** containing factual information.\n"
-            "2. **A user's question** seeking clarification or advice.\n"
-            "3. **Return a concise, to-the-point answer grounded strictly in the provided context.**\n\n"
-            "The answer should be accurate, easy to follow, based on the context(s), and include clear reasoning or justification.\n"
-            "If the context does not provide enough information, answer using your general knowledge.\n\n"
-            "Context:\n{context}\n\nQuestion:\n{question}\n\nAnswer:"
-        ),
-        description="Legacy English prompt template for query streaming",
-    )
-
-    # Chatbot prompt (non-conversational) for German language.
-    query_vllm_stream_de_prompt: str = Field(
-        default=(
-            "Sie erhalten: 1. **Einen kurzen Kontexttext** mit sachlichen Informationen.\n"
-            "2. **Die Frage eines Nutzers**, der um Klärung oder Rat bittet.\n"
-            "3. **Geben Sie eine prägnante und aussagekräftige Antwort, die sich strikt auf den gegebenen Kontext stützt.**\n\n"
-            "Die Antwort sollte korrekt, leicht verständlich und kontextbezogen sein sowie eine klare Begründung enthalten.\n"
-            "Wenn der Kontext nicht genügend Informationen liefert, antworten Sie mit Ihrem Allgemeinwissen.\n\n"
-            "Kontext:{context}\n\nFrage:{question}\n\nAntwort:"
-        ),
-        description="German prompt template for query streaming",
-    )
 
     llm_validate_custom_system_prompt: bool = Field(
         default=True,
@@ -280,78 +299,6 @@ class RAGConfig(BaseSettings):
             logger.warning(f"Setting prompt_template_token_count to default '250' as it is missing in the settings")
             return 250
         return v
-    @field_validator('system_prompt', mode='after')
-    @classmethod
-    def validate_system_prompt(cls, v, info):
-        """Validate system_prompt with language detection, warning fallback and LLM validation."""
-        default_prompt = cls.DEFAULT_SYSTEM_PROMPT
-        
-        # Basic validation: check if prompt is not empty and has reasonable length
-        v_stripped = v.strip()
-        if len(v_stripped) == 0:
-            return default_prompt
-        
-        if len(v_stripped) < 10:
-            logger.warning(
-                f"system_prompt too short ({len(v_stripped)} chars). "
-                "Falling back to default system prompt."
-            )
-            return default_prompt
-        
-        if len(v_stripped) > 5000:
-            logger.warning(
-                f"system_prompt too long ({len(v_stripped)} chars). "
-                "Truncating to 5000 characters."
-            )
-            v_stripped = v_stripped[:5000]
-        
-        # Language detection: Only allow English custom system prompts
-        try:
-            from common.lang_utils import detect_language, lang_en
-            detected_lang = detect_language(v_stripped, min_confidence=0.7)
-            if detected_lang != lang_en:
-                logger.warning(
-                    f"Custom system prompt detected as non-English language ({detected_lang}). "
-                    "Custom system prompts are only supported in English. "
-                    "Falling back to default system prompt."
-                )
-                return default_prompt
-            logger.info("Custom system prompt language validation passed (English detected)")
-        except Exception as e:
-            logger.warning(f"Error during language detection for custom system prompt: {e}. Proceeding with validation.")
-        
-        # LLM-based validation (if enabled)
-        llm_validation_enabled = info.data.get('llm_validate_custom_system_prompt', True)
-        if llm_validation_enabled:
-            try:
-                from chatbot.prompt_validator import validate_prompt_with_llm
-                if misc_utils.SESSION is None:
-                    create_llm_session(pool_maxsize=1)
-                
-                validation_result = validate_prompt_with_llm(
-                    v_stripped,
-                    prompt_type="initial_system",
-                    enable_semantic_check=True,
-                    enable_injection_check=True
-                )
-                
-                if not validation_result.is_valid():
-                    logger.warning(
-                        f"LLM validation failed for system_prompt: "
-                        f"{validation_result.reason}. "
-                        f"Falling back to default system prompt."
-                    )
-                    return default_prompt
-                
-                logger.info(
-                    f"LLM validation passed for system_prompt: "
-                    f"{validation_result.reason}"
-                )
-            except Exception as e:
-                logger.warning(f"Error during LLM validation: {e}. Proceeding with basic validation only.")
-        
-        logger.info("Using custom system_prompt from environment")
-        return v_stripped
 
 class Settings(BaseSettings):
     common: CommonSettings = Field(default_factory=CommonSettings)
