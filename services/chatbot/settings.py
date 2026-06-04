@@ -17,6 +17,50 @@ class QueryRephrasingConfig(BaseSettings):
     
     model_config = SettingsConfigDict(env_prefix="QUERY_REPHRASING_")
     
+    class EnglishConfig(BaseSettings):
+        """English-specific query rephrasing settings."""
+        
+        rephrase_prompt_template: str = Field(
+            default=(
+                "Given the conversation history and the current question, create a standalone query for semantic search.\n\n"
+                "Instructions:\n"
+                "1. If the current question is already standalone and clear, return it EXACTLY as-is (preserve original wording)\n"
+                "2. If the question references previous context (uses pronouns like 'it', 'this', 'that', 'they'), replace them with specific nouns from the conversation history\n"
+                "3. Only merge context if the current question is clearly a follow-up that requires previous information\n"
+                "4. Remove conversational filler words (e.g., 'Can you tell me', 'Also', 'Thanks', 'Please')\n"
+                "5. Keep the query concise and focused on the core search intent\n"
+                "6. If the conversation history is irrelevant to the current question, ignore it\n"
+                "7. Return ONLY the rephrased query, no explanation or additional text\n\n"
+                "Conversation History:\n{conversation_history}\n\n"
+                "Current Question: {current_query}\n\n"
+                "Rephrased Query:"
+            ),
+            description="English prompt template for query rephrasing with placeholders: {conversation_history}, {current_query}"
+        )
+    
+    class GermanConfig(BaseSettings):
+        """German-specific query rephrasing settings."""
+        
+        rephrase_prompt_template: str = Field(
+            default=(
+                "Erstelle anhand des Gesprächsverlaufs und der aktuellen Frage eine eigenständige Suchanfrage für die semantische Suche.\n\n"
+                "Anweisungen:\n"
+                "1. Wenn die aktuelle Frage bereits eigenständig und klar ist, gib sie GENAU unverändert zurück\n"
+                "2. Wenn die Frage auf vorherigen Kontext verweist (z. B. mit Pronomen wie 'es', 'dies', 'diese', 'sie'), ersetze diese durch konkrete Begriffe aus dem Gesprächsverlauf\n"
+                "3. Füge Kontext nur dann zusammen, wenn die aktuelle Frage eindeutig eine Anschlussfrage ist, die frühere Informationen benötigt\n"
+                "4. Entferne überflüssige Gesprächsfloskeln (z. B. 'Kannst du mir sagen', 'Außerdem', 'Danke', 'Bitte')\n"
+                "5. Halte die Suchanfrage kurz und auf die eigentliche Suchabsicht fokussiert\n"
+                "6. Wenn der Gesprächsverlauf für die aktuelle Frage irrelevant ist, ignoriere ihn\n"
+                "7. Gib NUR die umformulierte Suchanfrage zurück, ohne Erklärung oder zusätzlichen Text\n\n"
+                "Gesprächsverlauf:\n{conversation_history}\n\n"
+                "Aktuelle Frage: {current_query}\n\n"
+                "Umformulierte Suchanfrage:"
+            ),
+            description="German prompt template for query rephrasing with placeholders: {conversation_history}, {current_query}"
+        )
+    
+    model_config = SettingsConfigDict(env_prefix="QUERY_REPHRASING_")
+    
     timeout_seconds: float = Field(
         default=5.0,
         gt=0,
@@ -50,57 +94,72 @@ class QueryRephrasingConfig(BaseSettings):
         description="Maximum tokens allocated for conversation history during query rephrasing"
     )
     
-    rephrase_prompt_template_en: str = Field(
-        default=(
-            "Given the conversation history and the current question, create a standalone query for semantic search.\n\n"
-            "Instructions:\n"
-            "1. If the current question is already standalone and clear, return it EXACTLY as-is (preserve original wording)\n"
-            "2. If the question references previous context (uses pronouns like 'it', 'this', 'that', 'they'), replace them with specific nouns from the conversation history\n"
-            "3. Only merge context if the current question is clearly a follow-up that requires previous information\n"
-            "4. Remove conversational filler words (e.g., 'Can you tell me', 'Also', 'Thanks', 'Please')\n"
-            "5. Keep the query concise and focused on the core search intent\n"
-            "6. If the conversation history is irrelevant to the current question, ignore it\n"
-            "7. Return ONLY the rephrased query, no explanation or additional text\n\n"
-            "Conversation History:\n{conversation_history}\n\n"
-            "Current Question: {current_query}\n\n"
-            "Rephrased Query:"
-        ),
-        description="English prompt template for query rephrasing with placeholders: {conversation_history}, {current_query}"
+    # Language-specific configurations
+    english: EnglishConfig = Field(default_factory=EnglishConfig)
+    german: GermanConfig = Field(default_factory=GermanConfig)
+    
+    # Single env var that gets applied based on language detection
+    rephrase_prompt_template: str = Field(
+        default="",
+        description="Custom rephrase prompt template (language auto-detected and applied to appropriate config)"
     )
-
-    rephrase_prompt_template_de: str = Field(
-        default=(
-            "Erstelle anhand des Gesprächsverlaufs und der aktuellen Frage eine eigenständige Suchanfrage für die semantische Suche.\n\n"
-            "Anweisungen:\n"
-            "1. Wenn die aktuelle Frage bereits eigenständig und klar ist, gib sie GENAU unverändert zurück\n"
-            "2. Wenn die Frage auf vorherigen Kontext verweist (z. B. mit Pronomen wie 'es', 'dies', 'diese', 'sie'), ersetze diese durch konkrete Begriffe aus dem Gesprächsverlauf\n"
-            "3. Füge Kontext nur dann zusammen, wenn die aktuelle Frage eindeutig eine Anschlussfrage ist, die frühere Informationen benötigt\n"
-            "4. Entferne überflüssige Gesprächsfloskeln (z. B. 'Kannst du mir sagen', 'Außerdem', 'Danke', 'Bitte')\n"
-            "5. Halte die Suchanfrage kurz und auf die eigentliche Suchabsicht fokussiert\n"
-            "6. Wenn der Gesprächsverlauf für die aktuelle Frage irrelevant ist, ignoriere ihn\n"
-            "7. Gib NUR die umformulierte Suchanfrage zurück, ohne Erklärung oder zusätzlichen Text\n\n"
-            "Gesprächsverlauf:\n{conversation_history}\n\n"
-            "Aktuelle Frage: {current_query}\n\n"
-            "Umformulierte Suchanfrage:"
-        ),
-        description="German prompt template for query rephrasing with placeholders: {conversation_history}, {current_query}"
-    )
+    
+    def model_post_init(self, __context):
+        """Post-initialization to handle custom prompt with language detection."""
+        if self.rephrase_prompt_template:
+            try:
+                from common.lang_utils import detect_language, language_codes
+                detected_lang = detect_language(self.rephrase_prompt_template, min_confidence=0.7)
+                
+                if detected_lang == language_codes["German"]:
+                    self.german.rephrase_prompt_template = self.rephrase_prompt_template
+                    logger.info("Applied custom rephrase_prompt_template to German config")
+                else:
+                    self.english.rephrase_prompt_template = self.rephrase_prompt_template
+                    logger.info("Applied custom rephrase_prompt_template to English config")
+            except Exception as e:
+                logger.warning(f"Error detecting language for rephrase_prompt_template: {e}. Applying to English config.")
+                self.english.rephrase_prompt_template = self.rephrase_prompt_template
 
 
 class LLMConfig(BaseSettings):
     """Chatbot-specific LLM generation settings."""
-
-    max_tokens: int = Field(
-        default=512,
-        gt=0,
-        description="Maximum tokens for LLM generation (English)",
-    )
-
-    max_tokens_de: int = Field(
-        default=700,
-        gt=0,
-        description="Maximum tokens for LLM generation (German)",
-    )
+    
+    class EnglishConfig(BaseSettings):
+        """English-specific LLM settings."""
+        
+        max_tokens: int = Field(
+            default=512,
+            gt=0,
+            description="Maximum tokens for LLM generation (English)",
+        )
+        
+        @field_validator('max_tokens')
+        @classmethod
+        def validate_max_tokens(cls, v):
+            """Validate max_tokens with warning fallback."""
+            if not (isinstance(v, int) and v > 0):
+                logger.warning("Setting max_tokens to default '512' as it is missing or malformed in the settings")
+                return 512
+            return v
+    
+    class GermanConfig(BaseSettings):
+        """German-specific LLM settings."""
+        
+        max_tokens: int = Field(
+            default=700,
+            gt=0,
+            description="Maximum tokens for LLM generation (German)",
+        )
+        
+        @field_validator('max_tokens')
+        @classmethod
+        def validate_max_tokens(cls, v):
+            """Validate max_tokens with warning fallback."""
+            if not (isinstance(v, int) and v > 0):
+                logger.warning("Setting max_tokens_de to default '700' as it is missing or malformed in the settings")
+                return 700
+            return v
 
     temperature: float = Field(
         default=0.0,
@@ -109,23 +168,9 @@ class LLMConfig(BaseSettings):
         description="Temperature for LLM generation",
     )
 
-    @field_validator('max_tokens')
-    @classmethod
-    def validate_max_tokens(cls, v):
-        """Validate max_tokens with warning fallback."""
-        if not (isinstance(v, int) and v > 0):
-            logger.warning("Setting max_tokens to default '512' as it is missing or malformed in the settings")
-            return 512
-        return v
-
-    @field_validator('max_tokens_de')
-    @classmethod
-    def validate_max_tokens_de(cls, v):
-        """Validate max_tokens_de with warning fallback."""
-        if not (isinstance(v, int) and v > 0):
-            logger.warning("Setting max_tokens_de to default '700' as it is missing or malformed in the settings")
-            return 700
-        return v
+    # Language-specific configurations
+    english: EnglishConfig = Field(default_factory=EnglishConfig)
+    german: GermanConfig = Field(default_factory=GermanConfig)
 
     @field_validator('temperature')
     @classmethod
@@ -141,25 +186,70 @@ class RAGConfig(BaseSettings):
     """RAG retrieval and ranking settings."""
     
     model_config = SettingsConfigDict(env_prefix="CHATBOT_")
-    DEFAULT_SYSTEM_PROMPT_EN: ClassVar[str] = (
-        "You are a helpful, conversational AI assistant. "
-        "The conversation language is fixed to be English"
-        "Engage naturally with users across multiple turns of conversation. "
-        "Provide clear, accurate, and contextually relevant responses. "
-        "Reference previous exchanges when appropriate to maintain conversation flow."
-        "Answer only the specific question asked. Do not add conversational filler, offer additional assistance, suggest follow-up steps, or ask follow-up questions at the end of your response. End your response immediately once the question has been answered."
-    )
-
-    DEFAULT_SYSTEM_PROMPT_DE: ClassVar[str] = (
-        "Sie sind ein hilfreicher, dialogorientierter KI-Assistent. "
-        "Die Gesprächssprache ist für die gesamte Sitzung anhand der ersten Nachricht des Nutzers festgelegt. "
-        "Antworten Sie immer nur in dieser Sitzungssprache, auch wenn spätere Nachrichten Sprachen mischen. "
-        "Geben Sie klare, präzise und kontextbezogene Antworten. "
-        "Beziehen Sie sich bei Bedarf auf frühere Nachrichten, um den Gesprächsfluss aufrechtzuerhalten. "
-        "Beantworten Sie nur die konkret gestellte Frage. Fügen Sie keine Gesprächsfloskeln hinzu, "
-        "bieten Sie keine zusätzliche Hilfe an, schlagen Sie keine nächsten Schritte vor und stellen Sie am Ende keine Rückfragen. "
-        "Beenden Sie Ihre Antwort sofort, sobald die Frage beantwortet ist."
-    )
+    
+    class EnglishConfig(BaseSettings):
+        """English-specific RAG settings."""
+        
+        DEFAULT_SYSTEM_PROMPT: ClassVar[str] = (
+            "You are a helpful, conversational AI assistant. "
+            "The conversation language is fixed to be English"
+            "Engage naturally with users across multiple turns of conversation. "
+            "Provide clear, accurate, and contextually relevant responses. "
+            "Reference previous exchanges when appropriate to maintain conversation flow."
+            "Answer only the specific question asked. Do not add conversational filler, offer additional assistance, suggest follow-up steps, or ask follow-up questions at the end of your response. End your response immediately once the question has been answered."
+        )
+        
+        system_prompt: str = Field(
+            default=DEFAULT_SYSTEM_PROMPT,
+            description="English conversational system prompt for session-based behavior",
+        )
+        
+        query_system_prompt: str = Field(
+            default=(
+                "Session language: English\n\n"
+                "Retrieved Context:\n{context}\n\n"
+                "Rephrased Query: {rephrased_query}\n\n"
+                "Instructions: Answer the user's question based on the retrieved context above. "
+                "Consider the conversation history to provide contextually relevant responses. "
+                "Be conversational and reference previous exchanges when relevant. "
+                "If the context doesn't contain enough information, acknowledge this clearly."
+            ),
+            description="RAG system prompt template with context and rephrased query",
+        )
+    
+    class GermanConfig(BaseSettings):
+        """German-specific RAG settings."""
+        
+        DEFAULT_SYSTEM_PROMPT: ClassVar[str] = (
+            "Sie sind ein hilfreicher, dialogorientierter KI-Assistent. "
+            "Die Gesprächssprache ist für die gesamte Sitzung anhand der ersten Nachricht des Nutzers festgelegt. "
+            "Antworten Sie immer nur in dieser Sitzungssprache, auch wenn spätere Nachrichten Sprachen mischen. "
+            "Geben Sie klare, präzise und kontextbezogene Antworten. "
+            "Beziehen Sie sich bei Bedarf auf frühere Nachrichten, um den Gesprächsfluss aufrechtzuerhalten. "
+            "Beantworten Sie nur die konkret gestellte Frage. Fügen Sie keine Gesprächsfloskeln hinzu, "
+            "bieten Sie keine zusätzliche Hilfe an, schlagen Sie keine nächsten Schritte vor und stellen Sie am Ende keine Rückfragen. "
+            "Beenden Sie Ihre Antwort sofort, sobald die Frage beantwortet ist."
+        )
+        
+        system_prompt: str = Field(
+            default=DEFAULT_SYSTEM_PROMPT,
+            description="German conversational system prompt for session-based behavior",
+        )
+        
+        query_system_prompt: str = Field(
+            default=(
+                "Sitzungssprache: Deutsch\n\n"
+                "Abgerufener Kontext:\n{context}\n\n"
+                "Suchanfrage:\n{rephrased_query}\n\n"
+                "Anweisungen: Beantworten Sie die aktuelle Frage des Nutzers anhand des oben abgerufenen Kontexts. "
+                "Halten Sie einen natürlichen Gesprächsfluss aufrecht und beziehen Sie frühere Gesprächsbeiträge ein, wenn sie relevant sind. "
+                "Antworten Sie ausschließlich auf Deutsch, weil die Sitzungssprache anhand der ersten Nachricht des Nutzers festgelegt wurde. "
+                "Wenn der abgerufene Kontext nicht genügend Informationen enthält, sagen Sie das klar."
+            ),
+            description="German conversational RAG system prompt template with context and search query",
+        )
+    
+    model_config = SettingsConfigDict(env_prefix="CHATBOT_")
 
     similarity_service_url: str = Field(
         default="http://similarity:8080",
@@ -203,43 +293,6 @@ class RAGConfig(BaseSettings):
         description="Maximum token length for user queries",
     )
 
-
-    system_prompt_en: str = Field(
-        default=DEFAULT_SYSTEM_PROMPT_EN,
-        description="English conversational system prompt for session-based behavior",
-    )
-
-    system_prompt_de: str = Field(
-        default=DEFAULT_SYSTEM_PROMPT_DE,
-        description="German conversational system prompt for session-based behavior",
-    )
-
-    query_system_prompt_en: str = Field(
-        default=(
-            "Session language: English\n\n"
-            "Retrieved Context:\n{context}\n\n"
-            "Rephrased Query: {rephrased_query}\n\n"
-            "Instructions: Answer the user's question based on the retrieved context above. "
-            "Consider the conversation history to provide contextually relevant responses. "
-            "Be conversational and reference previous exchanges when relevant. "
-            "If the context doesn't contain enough information, acknowledge this clearly."
-        ),
-        description="RAG system prompt template with context and rephrased query",
-    )
-
-    query_system_prompt_de: str = Field(
-        default=(
-            "Sitzungssprache: Deutsch\n\n"
-            "Abgerufener Kontext:\n{context}\n\n"
-            "Suchanfrage:\n{rephrased_query}\n\n"
-            "Anweisungen: Beantworten Sie die aktuelle Frage des Nutzers anhand des oben abgerufenen Kontexts. "
-            "Halten Sie einen natürlichen Gesprächsfluss aufrecht und beziehen Sie frühere Gesprächsbeiträge ein, wenn sie relevant sind. "
-            "Antworten Sie ausschließlich auf Deutsch, weil die Sitzungssprache anhand der ersten Nachricht des Nutzers festgelegt wurde. "
-            "Wenn der abgerufene Kontext nicht genügend Informationen enthält, sagen Sie das klar."
-        ),
-        description="German conversational RAG system prompt template with context and search query",
-    )
-
     history_token_budget: int = Field(
         default=2000,
         gt=0,
@@ -258,11 +311,57 @@ class RAGConfig(BaseSettings):
         description="Estimated tokens for RAG system message (excluding context)",
     )
 
-
     llm_validate_custom_system_prompt: bool = Field(
         default=True,
         description="Enable/disable LLM-based validation for custom system prompts"
     )
+    
+    # Language-specific configurations
+    english: EnglishConfig = Field(default_factory=EnglishConfig)
+    german: GermanConfig = Field(default_factory=GermanConfig)
+    
+    # Single env vars that get applied based on language detection
+    system_prompt: str = Field(
+        default="",
+        description="Custom system prompt (language auto-detected and applied to appropriate config)"
+    )
+    
+    query_system_prompt: str = Field(
+        default="",
+        description="Custom query system prompt (language auto-detected and applied to appropriate config)"
+    )
+    
+    def model_post_init(self, __context):
+        """Post-initialization to handle custom prompts with language detection."""
+        if self.system_prompt:
+            try:
+                from common.lang_utils import detect_language, language_codes
+                detected_lang = detect_language(self.system_prompt, min_confidence=0.7)
+                
+                if detected_lang == language_codes["German"]:
+                    self.german.system_prompt = self.system_prompt
+                    logger.info("Applied custom system_prompt to German config")
+                else:
+                    self.english.system_prompt = self.system_prompt
+                    logger.info("Applied custom system_prompt to English config")
+            except Exception as e:
+                logger.warning(f"Error detecting language for system_prompt: {e}. Applying to English config.")
+                self.english.system_prompt = self.system_prompt
+        
+        if self.query_system_prompt:
+            try:
+                from common.lang_utils import detect_language, language_codes
+                detected_lang = detect_language(self.query_system_prompt, min_confidence=0.7)
+                
+                if detected_lang == language_codes["German"]:
+                    self.german.query_system_prompt = self.query_system_prompt
+                    logger.info("Applied custom query_system_prompt to German config")
+                else:
+                    self.english.query_system_prompt = self.query_system_prompt
+                    logger.info("Applied custom query_system_prompt to English config")
+            except Exception as e:
+                logger.warning(f"Error detecting language for query_system_prompt: {e}. Applying to English config.")
+                self.english.query_system_prompt = self.query_system_prompt
 
     @field_validator('score_threshold')
     @classmethod

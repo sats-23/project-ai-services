@@ -222,14 +222,14 @@ def query_vllm_payload(
     logger.debug(f"Truncated Context: {context}")
 
     system_prompt = (
-        chatbot_settings.chatbot.system_prompt_de
+        chatbot_settings.chatbot.german.system_prompt
         if lang == "DE"
-        else chatbot_settings.chatbot.system_prompt_en
+        else chatbot_settings.chatbot.english.system_prompt
     )
     query_system_prompt = (
-        chatbot_settings.chatbot.query_system_prompt_de
+        chatbot_settings.chatbot.german.query_system_prompt
         if lang == "DE"
-        else chatbot_settings.chatbot.query_system_prompt_en
+        else chatbot_settings.chatbot.english.query_system_prompt
     )
 
     message_array = [

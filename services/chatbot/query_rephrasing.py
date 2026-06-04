@@ -239,9 +239,9 @@ async def rephrase_query_with_context(
         
         # Get language-specific prompt template from settings
         prompt_template = (
-            settings.query_rephrasing.rephrase_prompt_template_de
+            settings.query_rephrasing.german.rephrase_prompt_template
             if detected_lang == language_codes["German"]
-            else settings.query_rephrasing.rephrase_prompt_template_en
+            else settings.query_rephrasing.english.rephrase_prompt_template
         )
         
         # Build rephrasing prompt
