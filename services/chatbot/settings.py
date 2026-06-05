@@ -390,13 +390,83 @@ class RAGConfig(BaseSettings):
             return 3
         return v
 
-    @field_validator('prompt_template_token_count')
+    @field_validator('english', mode='after')
     @classmethod
-    def validate_prompt_template_token_count(cls, v):
-        """Validate prompt_template_token_count with warning fallback."""
-        if not isinstance(v, int):
-            logger.warning(f"Setting prompt_template_token_count to default '250' as it is missing in the settings")
-            return 250
+    def validate_english_system_prompt(cls, v, info):
+        """Validate English system_prompt with language detection, warning fallback and LLM validation."""
+        default_prompt = cls.EnglishConfig.DEFAULT_SYSTEM_PROMPT
+        system_prompt = v.system_prompt
+        
+        # Basic validation: check if prompt is not empty and has reasonable length
+        v_stripped = system_prompt.strip()
+        if len(v_stripped) == 0:
+            v.system_prompt = default_prompt
+            return v
+        
+        if len(v_stripped) < 10:
+            logger.warning(
+                f"English system_prompt too short ({len(v_stripped)} chars). "
+                "Falling back to default system prompt."
+            )
+            v.system_prompt = default_prompt
+            return v
+        
+        if len(v_stripped) > 5000:
+            logger.warning(
+                f"English system_prompt too long ({len(v_stripped)} chars). "
+                "Truncating to 5000 characters."
+            )
+            v_stripped = v_stripped[:5000]
+        
+        # Language detection: Only allow English custom system prompts
+        try:
+            from common.lang_utils import detect_language, language_codes
+            detected_lang = detect_language(v_stripped, min_confidence=0.7)
+            if detected_lang != language_codes["English"]:
+                logger.warning(
+                    f"Custom English system prompt detected as non-English language ({detected_lang}). "
+                    "Custom system prompts are only supported in English. "
+                    "Falling back to default system prompt."
+                )
+                v.system_prompt = default_prompt
+                return v
+            logger.info("Custom English system prompt language validation passed (English detected)")
+        except Exception as e:
+            logger.warning(f"Error during language detection for custom English system prompt: {e}. Proceeding with validation.")
+        
+        # LLM-based validation (if enabled)
+        llm_validation_enabled = info.data.get('llm_validate_custom_system_prompt', True)
+        if llm_validation_enabled:
+            try:
+                from chatbot.prompt_validator import validate_prompt_with_llm
+                if misc_utils.SESSION is None:
+                    create_llm_session(pool_maxsize=1)
+                
+                validation_result = validate_prompt_with_llm(
+                    v_stripped,
+                    prompt_type="initial_system",
+                    enable_semantic_check=True,
+                    enable_injection_check=True
+                )
+                
+                if not validation_result.is_valid():
+                    logger.warning(
+                        f"LLM validation failed for English system_prompt: "
+                        f"{validation_result.reason}. "
+                        f"Falling back to default system prompt."
+                    )
+                    v.system_prompt = default_prompt
+                    return v
+                
+                logger.info(
+                    f"LLM validation passed for English system_prompt: "
+                    f"{validation_result.reason}"
+                )
+            except Exception as e:
+                logger.warning(f"Error during LLM validation: {e}. Proceeding with basic validation only.")
+        
+        logger.info("Using custom English system_prompt from environment")
+        v.system_prompt = v_stripped
         return v
 
 class Settings(BaseSettings):
