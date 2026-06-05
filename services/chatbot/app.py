@@ -340,12 +340,25 @@ async def chat_completion(req: ChatCompletionRequest, credentials: Optional[HTTP
     if not current_query or not current_query.strip():
         APIError.raise_error(ErrorCode.EMPTY_INPUT, "Query cannot be empty")
 
-    first_user_message = next(
-        (message.content for message in req.messages if message.role == "user"),
-        current_query,
-    )
-    session_lang = detect_language(first_user_message)
-    if session_lang not in {language_codes["English"], language_codes["German"]}:
+    # Detect language from current query (stateless - detect on every message)
+    try:
+        session_lang = detect_language(current_query)
+        
+        # Fallback to English if unsupported language detected
+        if session_lang not in language_codes.values():
+            logging.debug(
+                f"Unsupported language detected ({session_lang}). "
+                "Falling back to English."
+            )
+            session_lang = language_codes["English"]
+        
+        logging.debug(f"Detected language for current message: {session_lang}")
+        
+    except Exception as e:
+        logging.warning(
+            f"Language detection failed: {e}. "
+            "Falling back to English."
+        )
         session_lang = language_codes["English"]
 
     # Ensure vectorstore is initialized on first request

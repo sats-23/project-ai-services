@@ -240,7 +240,7 @@ async def rephrase_query_with_context(
     # Use provided lang or detect if not provided
     detected_lang = lang if lang is not None else detect_language(current_query)
     
-    if detected_lang not in {language_codes["English"], language_codes["German"]}:
+    if detected_lang not in language_codes.values():
         logger.debug("Query rephrasing skipped: unsupported language detected")
         return current_query
 

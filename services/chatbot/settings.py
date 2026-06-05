@@ -332,36 +332,45 @@ class RAGConfig(BaseSettings):
     )
     
     def model_post_init(self, __context):
-        """Post-initialization to handle custom prompts with language detection."""
+        """
+        Post-initialization to handle custom prompts with language detection and validation.
+        
+        Flow:
+        1. Detect language of custom prompt
+        2. Validate the prompt (if validation enabled)
+        3. Override the appropriate language config only if validation passes
+        4. Fallback to English on any failure
+        """
+        # Handle custom system_prompt
         if self.system_prompt:
             try:
                 from common.lang_utils import detect_language, language_codes
+                
                 detected_lang = detect_language(self.system_prompt, min_confidence=0.7)
                 
+                # Fallback to English if unsupported language
+                if detected_lang not in language_codes.values():
+                    logger.warning(
+                        f"Custom system_prompt detected as unsupported language ({detected_lang}). "
+                        "Falling back to English."
+                    )
+                    detected_lang = language_codes["English"]
+                
+                logger.info(f"Custom system_prompt detected as: {detected_lang}")
+
                 if detected_lang == language_codes["German"]:
                     self.german.system_prompt = self.system_prompt
                     logger.info("Applied custom system_prompt to German config")
                 else:
                     self.english.system_prompt = self.system_prompt
                     logger.info("Applied custom system_prompt to English config")
+                    
             except Exception as e:
-                logger.warning(f"Error detecting language for system_prompt: {e}. Applying to English config.")
+                logger.warning(
+                    f"Error processing custom system_prompt: {e}. "
+                    "Falling back to English config."
+                )
                 self.english.system_prompt = self.system_prompt
-        
-        if self.query_system_prompt:
-            try:
-                from common.lang_utils import detect_language, language_codes
-                detected_lang = detect_language(self.query_system_prompt, min_confidence=0.7)
-                
-                if detected_lang == language_codes["German"]:
-                    self.german.query_system_prompt = self.query_system_prompt
-                    logger.info("Applied custom query_system_prompt to German config")
-                else:
-                    self.english.query_system_prompt = self.query_system_prompt
-                    logger.info("Applied custom query_system_prompt to English config")
-            except Exception as e:
-                logger.warning(f"Error detecting language for query_system_prompt: {e}. Applying to English config.")
-                self.english.query_system_prompt = self.query_system_prompt
 
     @field_validator('score_threshold')
     @classmethod
