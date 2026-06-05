@@ -58,9 +58,7 @@ class QueryRephrasingConfig(BaseSettings):
             ),
             description="German prompt template for query rephrasing with placeholders: {conversation_history}, {current_query}"
         )
-    
-    model_config = SettingsConfigDict(env_prefix="QUERY_REPHRASING_")
-    
+        
     timeout_seconds: float = Field(
         default=5.0,
         gt=0,
@@ -97,30 +95,6 @@ class QueryRephrasingConfig(BaseSettings):
     # Language-specific configurations
     english: EnglishConfig = Field(default_factory=EnglishConfig)
     german: GermanConfig = Field(default_factory=GermanConfig)
-    
-    # Single env var that gets applied based on language detection
-    rephrase_prompt_template: str = Field(
-        default="",
-        description="Custom rephrase prompt template (language auto-detected and applied to appropriate config)"
-    )
-    
-    def model_post_init(self, __context):
-        """Post-initialization to handle custom prompt with language detection."""
-        if self.rephrase_prompt_template:
-            try:
-                from common.lang_utils import detect_language, language_codes
-                detected_lang = detect_language(self.rephrase_prompt_template, min_confidence=0.7)
-                
-                if detected_lang == language_codes["German"]:
-                    self.german.rephrase_prompt_template = self.rephrase_prompt_template
-                    logger.info("Applied custom rephrase_prompt_template to German config")
-                else:
-                    self.english.rephrase_prompt_template = self.rephrase_prompt_template
-                    logger.info("Applied custom rephrase_prompt_template to English config")
-            except Exception as e:
-                logger.warning(f"Error detecting language for rephrase_prompt_template: {e}. Applying to English config.")
-                self.english.rephrase_prompt_template = self.rephrase_prompt_template
-
 
 class LLMConfig(BaseSettings):
     """Chatbot-specific LLM generation settings."""
@@ -249,8 +223,6 @@ class RAGConfig(BaseSettings):
             description="German conversational RAG system prompt template with context and search query",
         )
     
-    model_config = SettingsConfigDict(env_prefix="CHATBOT_")
-
     similarity_service_url: str = Field(
         default="http://similarity:8080",
         description="URL of the similarity search service"
@@ -324,11 +296,6 @@ class RAGConfig(BaseSettings):
     system_prompt: str = Field(
         default="",
         description="Custom system prompt (language auto-detected and applied to appropriate config)"
-    )
-    
-    query_system_prompt: str = Field(
-        default="",
-        description="Custom query system prompt (language auto-detected and applied to appropriate config)"
     )
     
     def model_post_init(self, __context):
