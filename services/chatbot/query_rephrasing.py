@@ -66,6 +66,31 @@ def calculate_dynamic_max_response_tokens(
 def format_messages_for_rephrasing(messages: List[Dict[str, str]], lang: str = language_codes["English"]) -> str:
     """
     Format conversation messages into a readable string for rephrasing context.
+    
+    Converts a list of conversation messages into a formatted string with localized
+    role labels based on the specified language. Supports English and German.
+    
+    Args:
+        messages: List of message dicts with 'role' and 'content' keys
+                 (OpenAI message format). Each message should have:
+                 - 'role': One of 'user', 'assistant', 'system', or 'unknown'
+                 - 'content': The message content string
+        lang: Language code for role labels (default: English).
+              Supported values: language_codes["English"], language_codes["German"]
+    
+    Returns:
+        Formatted conversation history string with localized role labels.
+        Returns empty string if messages list is empty.
+    
+    Example:
+        >>> messages = [
+        ...     {"role": "user", "content": "What is Spyre?"},
+        ...     {"role": "assistant", "content": "Spyre is an AI accelerator..."}
+        ... ]
+        >>> format_messages_for_rephrasing(messages)
+        'User: What is Spyre?\\nAssistant: Spyre is an AI accelerator...'
+        >>> format_messages_for_rephrasing(messages, lang=language_codes["German"])
+        'Benutzer: What is Spyre?\\nAssistent: Spyre is an AI accelerator...'
     """
     if not messages:
         return ""
