@@ -354,6 +354,35 @@ class RAGConfig(BaseSettings):
                     detected_lang = language_codes["English"]
                 
                 logger.info(f"Custom system_prompt detected as: {detected_lang}")
+                
+                if self.llm_validate_custom_system_prompt:
+                    try:
+                        from chatbot.prompt_validator import validate_prompt_with_llm
+                        if misc_utils.SESSION is None:
+                            create_llm_session(pool_maxsize=1)
+                        
+                        validation_result = validate_prompt_with_llm(
+                            self.system_prompt,
+                            prompt_type="initial_system",
+                            enable_semantic_check=True,
+                            enable_injection_check=True,
+                            language=detected_lang
+                        )
+                        
+                        if not validation_result.is_valid():
+                            logger.warning(
+                                f"LLM validation failed for custom system_prompt: "
+                                f"{validation_result.reason}. "
+                                f"Falling back to default system prompt."
+                            )
+                            return
+                        
+                        logger.info(
+                            f"LLM validation passed for custom system_prompt: "
+                            f"All validation checks passed"
+                        )
+                    except Exception as e:
+                        logger.warning(f"Error during LLM validation: {e}. Proceeding with basic validation only.")
 
                 if detected_lang == language_codes["German"]:
                     self.german.system_prompt = self.system_prompt
@@ -427,61 +456,7 @@ class RAGConfig(BaseSettings):
             )
             v_stripped = v_stripped[:5000]
         
-        # Language detection: Detect language and validate accordingly
-        try:
-            from common.lang_utils import detect_language, language_codes
-            detected_lang = detect_language(v_stripped, min_confidence=0.7)
-            detected_lang_code = language_codes["English"]
-            if detected_lang == language_codes["German"]:
-                detected_lang_code = language_codes["German"]
-                logger.info("Custom system prompt detected as German, will use German validation")
-            elif detected_lang != language_codes["English"]:
-                logger.warning(
-                    f"Custom English system prompt detected as non-English/non-German language ({detected_lang}). "
-                    "Falling back to default system prompt."
-                )
-                v.system_prompt = default_prompt
-                return v
-            else:
-                logger.info("Custom English system prompt language validation passed (English detected)")
-        except Exception as e:
-            from common.lang_utils import language_codes
-            detected_lang_code = language_codes["English"]
-            logger.warning(f"Error during language detection for custom English system prompt: {e}. Proceeding with validation.")
-        
-        # LLM-based validation (if enabled)
-        llm_validation_enabled = info.data.get('llm_validate_custom_system_prompt', True)
-        if llm_validation_enabled:
-            try:
-                from chatbot.prompt_validator import validate_prompt_with_llm
-                if misc_utils.SESSION is None:
-                    create_llm_session(pool_maxsize=1)
-                
-                validation_result = validate_prompt_with_llm(
-                    v_stripped,
-                    prompt_type="initial_system",
-                    enable_semantic_check=True,
-                    enable_injection_check=True,
-                    language=detected_lang_code
-                )
-                
-                if not validation_result.is_valid():
-                    logger.warning(
-                        f"LLM validation failed for English system_prompt: "
-                        f"{validation_result.reason}. "
-                        f"Falling back to default system prompt."
-                    )
-                    v.system_prompt = default_prompt
-                    return v
-                
-                logger.info(
-                    f"LLM validation passed for English system_prompt: "
-                    f"{validation_result.reason}"
-                )
-            except Exception as e:
-                logger.warning(f"Error during LLM validation: {e}. Proceeding with basic validation only.")
-        
-        logger.info("Using custom English system_prompt from environment")
+        logger.info("Using custom English system_prompt")
         v.system_prompt = v_stripped
         return v
 
@@ -516,61 +491,7 @@ class RAGConfig(BaseSettings):
             )
             v_stripped = v_stripped[:5000]
         
-        # Language detection: Detect language and validate accordingly
-        try:
-            from common.lang_utils import detect_language, language_codes
-            detected_lang = detect_language(v_stripped, min_confidence=0.7)
-            detected_lang_code = language_codes["German"]
-            if detected_lang == language_codes["English"]:
-                detected_lang_code = language_codes["English"]
-                logger.info("Custom system prompt detected as English, will use English validation")
-            elif detected_lang != language_codes["German"]:
-                logger.warning(
-                    f"Custom German system prompt detected as non-German/non-English language ({detected_lang}). "
-                    "Falling back to default system prompt."
-                )
-                v.system_prompt = default_prompt
-                return v
-            else:
-                logger.info("Custom German system prompt language validation passed (German detected)")
-        except Exception as e:
-            from common.lang_utils import language_codes
-            detected_lang_code = language_codes["German"]
-            logger.warning(f"Error during language detection for custom German system prompt: {e}. Proceeding with validation.")
-        
-        # LLM-based validation (if enabled)
-        llm_validation_enabled = info.data.get('llm_validate_custom_system_prompt', True)
-        if llm_validation_enabled:
-            try:
-                from chatbot.prompt_validator import validate_prompt_with_llm
-                if misc_utils.SESSION is None:
-                    create_llm_session(pool_maxsize=1)
-                
-                validation_result = validate_prompt_with_llm(
-                    v_stripped,
-                    prompt_type="initial_system",
-                    enable_semantic_check=True,
-                    enable_injection_check=True,
-                    language=detected_lang_code
-                )
-                
-                if not validation_result.is_valid():
-                    logger.warning(
-                        f"LLM validation failed for German system_prompt: "
-                        f"{validation_result.reason}. "
-                        f"Falling back to default system prompt."
-                    )
-                    v.system_prompt = default_prompt
-                    return v
-                
-                logger.info(
-                    f"LLM validation passed for German system_prompt: "
-                    f"{validation_result.reason}"
-                )
-            except Exception as e:
-                logger.warning(f"Error during LLM validation: {e}. Proceeding with basic validation only.")
-        
-        logger.info("Using custom German system_prompt from environment")
+        logger.info("Using custom German system_prompt")
         v.system_prompt = v_stripped
         return v
 
