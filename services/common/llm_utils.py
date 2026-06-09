@@ -221,16 +221,13 @@ def query_vllm_payload(
 
     logger.debug(f"Truncated Context: {context}")
 
-    system_prompt = (
-        chatbot_settings.chatbot.german.system_prompt
-        if lang == "DE"
-        else chatbot_settings.chatbot.english.system_prompt
-    )
-    query_system_prompt = (
-        chatbot_settings.chatbot.german.query_system_prompt
-        if lang == "DE"
-        else chatbot_settings.chatbot.english.query_system_prompt
-    )
+    match lang:
+        case "DE":
+            system_prompt = chatbot_settings.chatbot.german.system_prompt
+            query_system_prompt = chatbot_settings.chatbot.german.query_system_prompt
+        case _:
+            system_prompt = chatbot_settings.chatbot.english.system_prompt
+            query_system_prompt = chatbot_settings.chatbot.english.query_system_prompt
 
     message_array = [
         {
