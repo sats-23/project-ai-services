@@ -18,8 +18,6 @@ from lingua import Language
 from common.misc_utils import set_log_level
 from common.lang_utils import setup_language_detector, detect_language, language_codes, get_max_tokens_map
 
-setup_language_detector([Language.ENGLISH, Language.GERMAN])
-
 from chatbot.settings import settings
 from chatbot.conversation_utils import get_conversation_context, truncate_history_by_tokens
 from chatbot.query_rephrasing import rephrase_query_with_context
@@ -95,6 +93,7 @@ async def lifespan(app):
     filtered_paths = ['/health']
     configure_uvicorn_logging(settings.common.app.log_level, filtered_paths)
     initialize_models()
+    setup_language_detector([Language.ENGLISH, Language.GERMAN])
     create_llm_session(pool_maxsize=settings.common.llm.max_batch_size)
     yield
     stderr_monitor.stop()
