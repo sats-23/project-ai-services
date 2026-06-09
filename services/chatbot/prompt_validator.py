@@ -156,6 +156,17 @@ class GermanConstants:
     )
 
 
+LANGUAGE_CONSTANTS = {
+    language_codes["English"]: EnglishConstants,
+    language_codes["German"]: GermanConstants,
+}
+
+
+def _get_language_constants(language: str):
+    """Return language constants with English fallback for unsupported languages."""
+    return LANGUAGE_CONSTANTS.get(language, EnglishConstants)
+
+
 class ValidationResult(Enum):
     """Validation result status."""
     VALID = "valid"
@@ -265,10 +276,7 @@ def _parse_validation_response(
         confidence = 0.0
         
         # Get language-specific keywords from appropriate constants class
-        if language == language_codes["German"]:
-            keywords = GermanConstants.RESPONSE_KEYWORDS
-        else:
-            keywords = EnglishConstants.RESPONSE_KEYWORDS
+        keywords = _get_language_constants(language).RESPONSE_KEYWORDS
         
         for line in lines:
             line = line.strip()
@@ -323,10 +331,7 @@ def validate_semantic_quality(
         PromptValidationResponse with validation result
     """
     # Select appropriate constants based on language
-    if language == language_codes["German"]:
-        constants = GermanConstants
-    else:
-        constants = EnglishConstants
+    constants = _get_language_constants(language)
     
     # Format the validation prompt using the selected template
     validation_prompt = constants.SEMANTIC_VALIDATION_PROMPT_TEMPLATE.format(
@@ -369,10 +374,7 @@ def detect_prompt_injection(
         PromptValidationResponse with detection result
     """
     # Select appropriate constants based on language
-    if language == language_codes["German"]:
-        constants = GermanConstants
-    else:
-        constants = EnglishConstants
+    constants = _get_language_constants(language)
     
     # Format the validation prompt using the selected template
     validation_prompt = constants.INJECTION_DETECTION_PROMPT_TEMPLATE.format(prompt=prompt)

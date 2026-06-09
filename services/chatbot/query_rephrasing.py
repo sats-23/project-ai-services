@@ -16,6 +16,15 @@ import common.misc_utils as misc_utils
 logger = get_logger("query_rephrasing")
 
 
+def _get_query_rephrasing_language_config(lang: str, settings):
+    """Return query rephrasing language config with English fallback."""
+    language_config_map = {
+        language_codes["English"]: settings.query_rephrasing.english,
+        language_codes["German"]: settings.query_rephrasing.german,
+    }
+    return language_config_map.get(lang, settings.query_rephrasing.english)
+
+
 def calculate_dynamic_max_response_tokens(
     query: str,
     llm_endpoint: str,
@@ -98,11 +107,7 @@ def format_messages_for_rephrasing(messages: List[Dict[str, str]], lang: str = l
     # Get role labels from settings
     from chatbot.settings import settings
     
-    match lang:
-        case _ if lang == language_codes["German"]:
-            labels = settings.query_rephrasing.german.role_labels
-        case _:
-            labels = settings.query_rephrasing.english.role_labels
+    labels = _get_query_rephrasing_language_config(lang, settings).role_labels
 
     formatted_lines = []
     for msg in messages:
@@ -151,11 +156,7 @@ def call_llm_for_rephrasing(
     # Get stop sequences from settings based on language
     from chatbot.settings import settings
     
-    match lang:
-        case _ if lang == language_codes["German"]:
-            stop_sequences = settings.query_rephrasing.german.stop_sequences
-        case _:
-            stop_sequences = settings.query_rephrasing.english.stop_sequences
+    stop_sequences = _get_query_rephrasing_language_config(lang, settings).stop_sequences
     
     payload = {
         "model": llm_model,
@@ -267,11 +268,7 @@ async def rephrase_query_with_context(
             return current_query
         
         # Get language-specific prompt template from settings
-        prompt_template = (
-            settings.query_rephrasing.german.rephrase_prompt_template
-            if detected_lang == language_codes["German"]
-            else settings.query_rephrasing.english.rephrase_prompt_template
-        )
+        prompt_template = _get_query_rephrasing_language_config(detected_lang, settings).rephrase_prompt_template
         
         # Build rephrasing prompt
         prompt = prompt_template.format(
