@@ -121,7 +121,17 @@ tags_metadata = [
 app = FastAPI(
     lifespan=lifespan,
     title="AI-Services Chatbot API",
-    description="RAG-based chatbot API with document retrieval, reranking, and LLM-powered responses.",
+    description="""RAG-based chatbot API with document retrieval, reranking, and LLM-powered responses.
+
+**Key Features**:
+- **Conversational RAG**: Multi-turn conversations with automatic context management and query rephrasing
+- **Semantic Search**: Vector-based document retrieval with reranking for improved relevance
+- **Streaming Support**: Real-time token generation for responsive user experience
+- **Multi-language**: Automatic language detection (English, German, French, Italian supported)
+- **Performance Metrics**: Detailed timing and token usage tracking
+
+**Authentication**: Optional vLLM API key authentication via Bearer token in Authorization header.
+""",
     version="1.0.0",
     openapi_tags=tags_metadata
 )
@@ -292,28 +302,73 @@ async def locked_stream(stream_g, perf_stat_dict):
     response_model=ChatCompletionResponse,
     tags=["chat"],
     summary="Chat with RAG",
-    description="Generate chat completions grounded in retrieved documents. Returns streaming response if stream=true, otherwise returns structured JSON. **Requires API key in Authorization header** (Bearer token) if vLLM authentication is enabled.",
+    description="""Generate chat completions grounded in retrieved documents using RAG (Retrieval-Augmented Generation).
+
+**Conversational Mode**: Supports multi-turn conversations by passing message history. The system automatically:
+- Extracts the current query from the last message
+- Uses previous messages as conversation context
+- Rephrases the current query based on conversation history for better retrieval
+- Maintains context-aware responses across turns
+
+**Features**:
+- Single-turn queries: Pass one message for standalone questions
+- Multi-turn conversations: Pass message array with history for context-aware responses
+- Streaming: Set `stream=true` for real-time token generation
+- Language detection: Automatically detects query language (English, German, French, Italian supported)
+- Query rephrasing: Automatically rephrases follow-up questions using conversation context
+
+**Authentication**: Requires API key in Authorization header (Bearer token) if vLLM authentication is enabled.
+
+**Response Headers**:
+- `X-Rephrased-Query`: Contains the rephrased query when conversation history is used (only if different from original)
+- `X-Request-ID`: Unique request identifier for tracking and metrics
+""",
     responses={
         200: {
             "description": "Successful Response",
             "content": {
                 "application/json": {
-                    "example": {
-                        "choices": [
-                            {
-                                "message": {
-                                    "content": "Based on the retrieved documents, artificial intelligence..."
-                                }
+                    "examples": {
+                        "single_turn": {
+                            "summary": "Single-turn response",
+                            "description": "Response to a standalone query without conversation history",
+                            "value": {
+                                "choices": [
+                                    {
+                                        "message": {
+                                            "content": "Based on the retrieved documents, artificial intelligence (AI) is the simulation of human intelligence processes by machines, especially computer systems. These processes include learning, reasoning, and self-correction."
+                                        }
+                                    }
+                                ]
                             }
-                        ]
+                        },
+                        "multi_turn": {
+                            "summary": "Multi-turn response",
+                            "description": "Response to a follow-up question with conversation context",
+                            "value": {
+                                "choices": [
+                                    {
+                                        "message": {
+                                            "content": "Some common examples of machine learning applications include: 1) Email spam filtering, 2) Image recognition and classification, 3) Recommendation systems (like Netflix or Amazon), 4) Voice assistants (Siri, Alexa), and 5) Autonomous vehicles."
+                                        }
+                                    }
+                                ]
+                            }
+                        }
                     }
                 },
                 "text/event-stream": {
                     "schema": {
                         "type": "string",
-                        "description": "Server-Sent Events stream. Each event is formatted as: data: {JSON}\\n\\n"
+                        "description": "Server-Sent Events stream. Each event is formatted as: data: {JSON}\\n\\n. Stream ends with data: [DONE]\\n\\n"
                     },
-                    "example": 'data: {"choices":[{"delta":{"content":"Based on"}}]}\n\ndata: {"choices":[{"delta":{"content":" the retrieved"}}]}\n\ndata: {"choices":[{"delta":{"content":" documents..."}}]}\n\n'
+                    "examples": {
+                        "streaming": {
+                            "summary": "Streaming response",
+                            "description": "Real-time token generation for immediate user feedback",
+                            "value": 'data: {"choices":[{"delta":{"content":"Based on"}}]}\n\ndata: {"choices":[{"delta":{"content":" the retrieved"}}]}\n\ndata: {"choices":[{"delta":{"content":" documents,"}}]}\n\ndata: {"choices":[{"delta":{"content":" artificial"}}]}\n\ndata: {"choices":[{"delta":{"content":" intelligence..."}}]}\n\ndata: [DONE]\n\n'
+                        }
+                    }
                 }
             }
         },
