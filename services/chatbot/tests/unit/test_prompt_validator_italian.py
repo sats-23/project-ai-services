@@ -77,7 +77,11 @@ class TestGetLanguageConstantsItalian:
 
     def test_get_constants_unsupported_language_fallback(self):
         """Test returns English constants for unsupported language codes."""
-        constants = _get_language_constants("FR")
+        # FR is now supported, so test with ES instead
+        constants = _get_language_constants("ES")
+        assert constants == EnglishConstants
+        
+        constants = _get_language_constants("ZH")
         assert constants == EnglishConstants
 
 
