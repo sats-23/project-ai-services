@@ -12,6 +12,18 @@ from common.settings import Settings as CommonSettings
 
 logger = get_logger("settings")
 
+# Initialize language detector early for settings validation
+def _ensure_language_detector_initialized():
+    """Initialize language detector if not already done."""
+    from common.lang_utils import setup_language_detector, _language_detector
+    from lingua import Language
+    
+    if _language_detector is None:
+        logger.debug("Initializing language detector for settings validation")
+        setup_language_detector([Language.ENGLISH, Language.GERMAN, Language.ITALIAN, Language.FRENCH])
+
+_ensure_language_detector_initialized()
+
 class QueryRephrasingConfig(BaseSettings):
     """Query rephrasing configuration for conversational RAG."""
     
