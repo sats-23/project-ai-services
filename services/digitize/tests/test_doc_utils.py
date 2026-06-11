@@ -355,7 +355,7 @@ class TestProcessTableLanguageSelection:
         # Mock the settings structure with proper nested Mock objects
         mock_italian = Mock()
         mock_italian.prompt = "Italian prompt template"
-        mock_italian.max_tokens = 1536
+        mock_italian.max_tokens = 1339
         
         mock_english = Mock()
         mock_english.prompt = "English prompt template"
@@ -367,7 +367,7 @@ class TestProcessTableLanguageSelection:
         
         mock_french = Mock()
         mock_french.prompt = "French prompt template"
-        mock_french.max_tokens = 1536
+        mock_french.max_tokens = 1260
         
         # Create a MagicMock that supports both attribute and subscript access
         mock_table_summary = MagicMock()
@@ -412,7 +412,7 @@ class TestProcessTableLanguageSelection:
 
         _, kwargs = mock_summarize_and_classify.call_args
         assert kwargs["prompt_template"] == "Italian prompt template"
-        assert kwargs["max_tokens"] == 1536
+        assert kwargs["max_tokens"] == 1339
     @patch("digitize.doc_utils.summarize_and_classify_tables")
     @patch("digitize.doc_utils.merge_consecutive_tables")
     @patch("digitize.doc_utils.os.path.splitext")
@@ -435,11 +435,11 @@ class TestProcessTableLanguageSelection:
         
         mock_italian = Mock()
         mock_italian.prompt = "Italian prompt template"
-        mock_italian.max_tokens = 1536
+        mock_italian.max_tokens = 1339
         
         mock_french = Mock()
         mock_french.prompt = "French prompt template"
-        mock_french.max_tokens = 1536
+        mock_french.max_tokens = 1260
         
         # Create a MagicMock that supports both attribute and subscript access
         mock_table_summary = MagicMock()
@@ -508,11 +508,11 @@ class TestProcessTableLanguageSelection:
         
         mock_italian = Mock()
         mock_italian.prompt = "Italian prompt template"
-        mock_italian.max_tokens = 1536
+        mock_italian.max_tokens = 1339
         
         mock_french = Mock()
         mock_french.prompt = "French prompt template"
-        mock_french.max_tokens = 1536
+        mock_french.max_tokens = 1260
         
         # Create a MagicMock that supports both attribute and subscript access
         mock_table_summary = MagicMock()
@@ -574,7 +574,7 @@ class TestProcessTableLanguageSelection:
         # Mock the settings structure with proper nested Mock objects
         mock_french = Mock()
         mock_french.prompt = "French prompt template"
-        mock_french.max_tokens = 1536
+        mock_french.max_tokens = 1260
         
         mock_english = Mock()
         mock_english.prompt = "English prompt template"
@@ -586,7 +586,7 @@ class TestProcessTableLanguageSelection:
         
         mock_italian = Mock()
         mock_italian.prompt = "Italian prompt template"
-        mock_italian.max_tokens = 1536
+        mock_italian.max_tokens = 1339
         
         # Create a MagicMock that supports both attribute and subscript access
         mock_table_summary = MagicMock()
@@ -631,7 +631,7 @@ class TestProcessTableLanguageSelection:
 
         _, kwargs = mock_summarize_and_classify.call_args
         assert kwargs["prompt_template"] == "French prompt template"
-        assert kwargs["max_tokens"] == 1536
+        assert kwargs["max_tokens"] == 1260
 
 
 # Made with Bob

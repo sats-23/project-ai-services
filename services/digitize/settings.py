@@ -244,7 +244,7 @@ class TableSummaryConfig(BaseSettings):
         """Italian-specific table summarization settings."""
         
         max_tokens: int = Field(
-            default=1536,
+            default=1339,
             ge=0,
             description="Maximum tokens for table summarization (Italian)",
         )
@@ -306,7 +306,7 @@ class TableSummaryConfig(BaseSettings):
         """French-specific table summarization settings."""
         
         max_tokens: int = Field(
-            default=1536,
+            default=1260,
             ge=0,
             description="Maximum tokens for table summarization (French)",
         )
