@@ -146,7 +146,7 @@ class TestLifespan:
             # Verify all functions were called in correct order
             # Note: vectorstore is NOT initialized in lifespan, it's lazy-loaded on first request
             # Note: language detector is initialized in settings module, not in lifespan
-            assert call_order == ['models', 'session']
+            assert call_order == ['session', 'models']
             mock_init_models.assert_called_once()
             mock_init_vectorstore.assert_not_called()  # Vectorstore is lazy-loaded on first request
             # Pool size comes from settings.common.llm.max_batch_size
