@@ -101,9 +101,16 @@ func executeCatalogDeployment(ctx context.Context, deployCtx *deploy.DeployConte
 
 		s.Stop("Catalog service deployed successfully")
 		logger.Infoln("-------")
-	}
+	} else {
+		s.Stop("Catalog service already deployed")
+		logger.Infof("Existing resources: %v\n", existingResources)
+		// Validate domain, HTTPS port, base directory, and certificates haven't changed
+		if err := validateReconfigureParameters(deployCtx.Runtime, &opts, caddyCtx.GetDomainSuffix()); err != nil {
+			s.Fail("validation failed during reconfigure")
 
-	logger.Infof("Catalog pod already exists: %v\n", existingResources)
+			return nil, fmt.Errorf("reconfigure validation failed: %w", err)
+		}
+	}
 
 	return caddyCtx, nil
 }
