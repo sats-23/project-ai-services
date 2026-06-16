@@ -203,6 +203,7 @@ def query_vllm_payload(
     query_system_prompt_sample = query_system_prompt.format(
         context="",
         rephrased_query="",
+        max_tokens=max_new_tokens,
     )
     rag_system_token_overhead = len(tokenize_with_llm(query_system_prompt_sample, llm_endpoint))
 
@@ -262,6 +263,7 @@ def query_vllm_payload(
     final_system_content = query_system_prompt.format(
         context=context,
         rephrased_query=rephrased_query or question,
+        max_tokens=max_new_tokens,
     )
     message_array.append({
         "role": "system",
