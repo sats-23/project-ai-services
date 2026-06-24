@@ -3,6 +3,8 @@ import axios from 'axios';
 import { OpenAI } from 'openai';
 import { DEFAULT_CONFIG } from '../config/chatbotConfig.js';
 
+const DEFAULT_STREAM_ERROR_MESSAGE = '⚠️ Error occurred during active stream.';
+
 // Helper function to escape HTML entities to prevent rendering issues with angle brackets
 function escapeHtml(text) {
   const div = document.createElement('div');
@@ -139,6 +141,17 @@ async function customSendMessage(
 
     for await (const chunk of stream) {
       if (isCanceled) break;
+
+      // Check for error in chunk
+      if (chunk.error) {
+        const errorStatus = chunk.error.status || 500;
+
+        const error = new Error(DEFAULT_STREAM_ERROR_MESSAGE);
+        error.status = errorStatus;
+        error.error = chunk.error;
+
+        throw error;
+      }
 
       const textChunk = chunk.choices[0]?.delta?.content || '';
 
@@ -286,11 +299,12 @@ async function customSendMessage(
   } catch (err) {
     instance.updateIsMessageLoadingCounter('decrease');
 
-    let errorMessage = '⚠️ Error occurred during active stream.';
+    let errorMessage = DEFAULT_STREAM_ERROR_MESSAGE;
+    const errorStatus = err.status || err.error?.status;
 
     // Handle authentication errors
     if (
-      err.status === 401 ||
+      errorStatus === 401 ||
       (err.error && err.error.code === 'AUTHENTICATION_FAILED')
     ) {
       errorMessage =
@@ -301,11 +315,10 @@ async function customSendMessage(
       }
     }
     // Handle specific HTTP status codes
-    else if (err.status === 429) {
+    else if (errorStatus === 429) {
       errorMessage = '⚠️ Server busy. Try again shortly.';
-    } else if (err.status >= 500 && err.status < 600) {
-      errorMessage =
-        '⚠️ Something went wrong on the server. Please try again later.';
+    } else if (errorStatus >= 500 && errorStatus < 600) {
+      errorMessage = '⚠️ Something went wrong on the server.';
     } else if (err.message) {
       // Extract error message from exception
       errorMessage = `⚠️ ${err.message}`;
