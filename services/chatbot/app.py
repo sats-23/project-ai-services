@@ -295,6 +295,25 @@ async def locked_stream(stream_g, perf_stat_dict):
     try:
         async for chunk in iterate_in_threadpool(stream_g):
             yield chunk
+    except Exception as e:
+        logging.error(f"Error in streaming response: {str(e)}", exc_info=True)
+        
+        # Determine error status code
+        status_code = 500  # Default to internal server error
+        if isinstance(e, HTTPException):
+            status_code = e.status_code
+        elif hasattr(e, 'status_code'):
+            status_code = getattr(e, 'status_code', 500)
+        
+        # Send error chunk with status information
+        error_chunk = {
+            'error': {
+                'status': status_code,
+                'type': 'stream_error'
+            }
+        }
+        yield f"data: {json.dumps(error_chunk)}\n\n"
+        yield "data: [DONE]\n\n"
     finally:
         perf_registry.add_metric(perf_stat_dict)
         concurrency_limiter.release()
@@ -580,6 +599,16 @@ async def chat_completion(req: ChatCompletionRequest, credentials: Optional[HTTP
                 return response_data
 
             APIError.raise_error(ErrorCode.LLM_ERROR, "Unexpected response format from LLM")
+        except HTTPException:
+            # Re-raise HTTPException to preserve status codes
+            raise
+        except Exception as e:
+            # For non-streaming requests, return error in chat response format
+            error_message = f"Error: {str(e)}"
+            logging.error(f"Error in non-streaming response: {error_message}", exc_info=True)
+            return ChatCompletionResponse(
+                choices=[ChatChoice(message=ChatMessage(content=error_message))]
+            )
         finally:
             # Release semaphore for non-streaming requests
             # For streaming requests, release is handled in locked_stream's finally block
