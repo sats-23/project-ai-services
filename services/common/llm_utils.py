@@ -19,7 +19,7 @@ def apply_token_buffer(max_tokens: int, token_buffer_ratio: float | None = None,
     """
     Apply token buffer to give LLM breathing room to respect prompt word limits.
     
-    The prompt instructs the LLM to limit to max_tokens, but we reduce the API limit
+    The API instructs the LLM to limit to max_tokens, but we reduce the prompt limit
     by token_buffer_ratio to ensure the LLM can naturally complete before hitting the hard limit.
     
     Args:
