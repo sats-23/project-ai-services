@@ -191,6 +191,27 @@ def query_vllm_models(llm_endpoint, api_key: str | None = None):
     return resp_json
 
 
+def query_litellm_model_info(endpoint: str, api_key: str | None = None) -> dict:
+    """Query the LiteLLM /model/info endpoint and return the raw response JSON.
+
+    Args:
+        endpoint: Base URL of the LiteLLM proxy (e.g. ``http://localhost:4000``).
+        api_key: Optional bearer token for the proxy.
+
+    Returns:
+        Parsed JSON response dict from /model/info.
+    """
+    if misc_utils.SESSION is None:
+        raise RuntimeError("LLM session not initialized. Call create_llm_session() first.")
+
+    logger.debug("Querying LiteLLM /model/info")
+    response = misc_utils.SESSION.get(
+        f"{endpoint}/model/info"
+    )
+    response.raise_for_status()
+    return response.json()
+
+
 def query_vllm_payload(
     question,
     documents,
