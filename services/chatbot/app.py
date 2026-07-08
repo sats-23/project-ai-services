@@ -496,13 +496,9 @@ async def chat_completion(req: ChatCompletionRequest, credentials: Optional[HTTP
         await ensure_vectorstore_initialized()
 
     try:
-        emb_model = emb_model_dict['emb_model']
         emb_endpoint = emb_model_dict['emb_endpoint']
-        emb_max_model_len = emb_model_dict['max_model_len']
         llm_model = llm_model_dict['llm_model']
         llm_endpoint = llm_model_dict['llm_endpoint']
-        reranker_model = reranker_model_dict['reranker_model']
-        reranker_endpoint = reranker_model_dict['reranker_endpoint']
 
 
         # Validate query length
@@ -544,12 +540,8 @@ async def chat_completion(req: ChatCompletionRequest, credentials: Optional[HTTP
         docs, perf_stat_dict = await asyncio.to_thread(
             search_only,
             rephrased_query,
-            emb_model, emb_endpoint, emb_max_model_len,
-            reranker_model,
-            reranker_endpoint,
             settings.chatbot.num_chunks_post_search,
             settings.chatbot.num_chunks_post_reranker,
-            vectorstore=vectorstore
         )
 
         if not docs:
