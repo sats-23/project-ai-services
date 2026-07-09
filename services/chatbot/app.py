@@ -636,11 +636,7 @@ async def chat_completion(req: ChatCompletionRequest, credentials: Optional[HTTP
                 return response_data
 
             APIError.raise_error(ErrorCode.LLM_ERROR, "Unexpected response format from LLM")
-        except HTTPException:
-            # Re-raise HTTPException to preserve status codes
-            raise
         except requests.exceptions.HTTPError as e:
-            # Propagate upstream 4xx/5xx status codes (vLLM/LiteLLM) back to the caller
             status_code = e.response.status_code if e.response is not None else 502
             logger.error(f"Error in non-streaming response: {e}", exc_info=True)
             raise HTTPException(
@@ -654,11 +650,16 @@ async def chat_completion(req: ChatCompletionRequest, credentials: Optional[HTTP
                 },
             )
         except Exception as e:
-            # For non-streaming requests, return error in chat response format
-            error_message = f"Error: {str(e)}"
-            logger.error(f"Error in non-streaming response: {error_message}", exc_info=True)
-            return ChatCompletionResponse(
-                choices=[ChatChoice(message=ChatMessage(content=error_message))]
+            logger.error(f"Error in non-streaming response: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail={
+                    "error": {
+                        "code": ErrorCode.LLM_ERROR.value,
+                        "message": str(e),
+                        "status": 500,
+                    }
+                },
             )
         finally:
             # Release semaphore for non-streaming requests
