@@ -87,9 +87,20 @@ Digitize pod starts
       → Upserts checksum registry with updated checksums and timestamps
 ```
 
+## Key Design Decisions
+
+| Decision | Choice | Rationale |
+|---|---|---|
+| `doc_id` resolution strategy | Look up by filename at delete time — no `doc_id` stored in the registry | Avoids storing digitize-internal IDs in the catalog registry; idempotent for already-deleted docs |
+| Partial failure handling | Log and continue per-file; set `partial_error` sync status | A single bad file must not abort the entire sync cycle for a connector |
+| File streaming | Stream SFTP bytes directly into the HTTP multipart body; no full-file buffer | Avoids OOM on large files |
+| Delete idempotency | Treat `404` from `DELETE /v1/documents/{id}` as success | Handles re-runs after partial failures without error noise |
+
+---
+
 ## Sub-Tasks
 
-### 1. Add connector domain models and persistence (catalog)
+### 1. Add connector domain models and persistence `[catalog]`
 - **Intent** — Create the persistent catalog-side representation for shared connector resources, auth state, validation state, provider type, and application attachment. The checksum registry and sync state live in digitize, not here. Catalog stores only the connector identity, credentials, and attachment relationships.
 - **Expected Outcomes** — New connector data models, repositories, and migrations exist so catalog can store shared connector resources and application-to-connector relationships. No checksum or sync state is stored in catalog.
 - **Todo List**
@@ -102,7 +113,7 @@ Digitize pod starts
 - **Relevant Context** — [`ai-services/internal/pkg/catalog/db/models/application.go`](ai-services/internal/pkg/catalog/db/models/application.go), [`ai-services/internal/pkg/catalog/db/models/service.go`](ai-services/internal/pkg/catalog/db/models/service.go), [`ai-services/internal/pkg/catalog/db/migrations/migrations.go`](ai-services/internal/pkg/catalog/db/migrations/migrations.go), [`ai-services/internal/pkg/catalog/db/repository`](ai-services/internal/pkg/catalog/db/repository)
 - **Status** — [ ] pending
 
-### 2. Add catalog connector APIs for the UI
+### 2. Add catalog connector APIs for the UI `[catalog]`
 - **Intent** — Expose connector management as a first-class catalog API surface used by the catalog UI, including the SSH/SFTP-specific create flow that returns the generated public key.
 - **Expected Outcomes** — Catalog has authenticated endpoints for creating, listing, updating, deleting, inspecting, and validating SSH/SFTP connectors. The create response includes the generated public key so the UI can display it to the user.
 - **Todo List**
@@ -115,7 +126,7 @@ Digitize pod starts
 - **Relevant Context** — [`ai-services/internal/pkg/catalog/apiserver/router.go`](ai-services/internal/pkg/catalog/apiserver/router.go), [`ai-services/internal/pkg/catalog/apiserver/handlers/application_handler.go`](ai-services/internal/pkg/catalog/apiserver/handlers/application_handler.go), [`ai-services/internal/pkg/catalog/apiserver/repository/application_service.go`](ai-services/internal/pkg/catalog/apiserver/repository/application_service.go)
 - **Status** — [ ] pending
 
-### 3. Implement SSH key generation and connector auth service (catalog)
+### 3. Implement SSH key generation and connector auth service `[catalog]`
 - **Intent** — On connector creation, catalog generates an Ed25519 key pair, persists the encrypted private key, and exposes the public key. On validation, catalog opens a real SFTP connection using the generated key to verify reachability and remote path access. This is the only place catalog ever touches the SSH transport layer.
 - **Expected Outcomes** — Every SSH/SFTP connector is provisioned with a system-generated Ed25519 key pair at creation time. The catalog can perform a live SFTP preflight check on demand. No password or user-supplied key material is ever stored or accepted.
 - **Todo List**
@@ -129,7 +140,7 @@ Digitize pod starts
 - **Relevant Context** — [`ai-services/internal/pkg/catalog/apiserver/services/auth/service.go`](ai-services/internal/pkg/catalog/apiserver/services/auth/service.go), [`ai-services/internal/pkg/utils/cert.go`](ai-services/internal/pkg/utils/cert.go), [`ai-services/go.mod`](ai-services/go.mod)
 - **Status** — [ ] pending
 
-### 4. Extend application creation to attach connectors and inject credentials at deploy time
+### 4. Extend application creation to attach connectors and inject credentials at deploy time `[catalog]`
 - **Intent** — Make shared connectors selectable and attachable during digital assistant application creation. At deploy time, catalog decrypts the connector's private key and injects all SFTP connection parameters into the digitize pod as environment variables or a mounted secret — using the same mechanism already used for Postgres and OpenSearch credentials.
 - **Expected Outcomes** — Application creation persists connector attachments. The deployer injects `SSH_HOST`, `SSH_PORT`, `SSH_USERNAME`, `SSH_REMOTE_PATH`, `SSH_PRIVATE_KEY_PEM`, and `SSH_SYNC_INTERVAL_SECONDS` into the digitize pod at deploy time. Digitize receives a fully formed connector config from its environment without needing to call back to catalog.
 - **Todo List**
@@ -143,7 +154,7 @@ Digitize pod starts
 - **Relevant Context** — [`ai-services/internal/pkg/catalog/apiserver/handlers/application_handler.go`](ai-services/internal/pkg/catalog/apiserver/handlers/application_handler.go), [`ai-services/internal/pkg/catalog/apiserver/repository/application_service.go`](ai-services/internal/pkg/catalog/apiserver/repository/application_service.go), [`ai-services/internal/pkg/catalog/apiserver/services/deployment/repository/podman/deployer.go`](ai-services/internal/pkg/catalog/apiserver/services/deployment/repository/podman/deployer.go), [`ai-services/assets/services/digitize/podman/templates/digitize.yaml.tmpl`](ai-services/assets/services/digitize/podman/templates/digitize.yaml.tmpl)
 - **Status** — [ ] pending
 
-### 5. Add connector settings and checksum schema to the digitize service
+### 5. Add connector settings and checksum schema to the digitize service `[digitize]`
 - **Intent** — Extend the digitize service's settings and database schema to support reading SSH connector configuration from environment variables and storing the per-file checksum registry in its own Postgres database. All connector runtime state lives entirely within digitize.
 - **Expected Outcomes** — Digitize reads SSH connector config from its environment via `settings.py`. A new `connector_file_checksums` table exists in digitize's Postgres. No connector state is stored in or read from the catalog database at runtime.
 - **Todo List**
@@ -153,7 +164,7 @@ Digitize pod starts
 - **Relevant Context** — [`services/digitize/settings.py`](services/digitize/settings.py), [`services/digitize/utils/db.py`](services/digitize/utils/db.py), [`services/digitize/db/scripts/`](services/digitize/db/scripts/)
 - **Status** — [ ] pending
 
-### 6. Implement the SFTP scanner and sync worker inside digitize
+### 6. Implement the SFTP scanner and sync worker inside digitize `[digitize]`
 - **Intent** — Add the runtime file-scanning and change-detection logic entirely within the digitize service. A background worker opens an SFTP session using the injected credentials, walks the remote directory, computes SHA-256 checksums, diffs against the stored registry, and feeds new/changed files directly into the existing ingest pipeline. Deleted remote files are removed from the index. No calls to catalog are made at runtime.
 - **Expected Outcomes** — When `SSH_ENABLED=true`, digitize starts a background sync worker on startup. The worker periodically scans the remote path, detects changes via its own checksum registry, and self-ingests new or modified files using the existing `POST /v1/jobs` ingest pipeline. Removed files are deleted from the document store and the checksum registry.
 - **Todo List**
@@ -165,7 +176,7 @@ Digitize pod starts
 - **Relevant Context** — [`services/digitize/app.py`](services/digitize/app.py), [`services/digitize/utils/storage.py`](services/digitize/utils/storage.py), [`services/digitize/utils/db.py`](services/digitize/utils/db.py), [`services/digitize/pipeline/ingest.py`](services/digitize/pipeline/ingest.py), [`services/digitize/api/v1/jobs.py`](services/digitize/api/v1/jobs.py)
 - **Status** — [ ] pending
 
-### 7. Wire operational lifecycle and cleanup
+### 7. Wire operational lifecycle and cleanup `[catalog]`
 - **Intent** — Ensure shared connectors participate cleanly in status reporting, application visibility, and deletion behavior without being mixed into unrelated deployment primitives.
 - **Expected Outcomes** — Connector state can be queried, shown in the UI, and cleaned up safely when detached or deleted.
 - **Todo List**
@@ -175,4 +186,42 @@ Digitize pod starts
   4. Keep connector cleanup logic separate from component and service deletion logic in [`ai-services/internal/pkg/catalog/apiserver/services/deletion/deletion.go`](ai-services/internal/pkg/catalog/apiserver/services/deletion/deletion.go).
   5. Add connector status reporting fields to the UI-facing connector API so the UI can show health, source type, auth status, and count of attached applications.
 - **Relevant Context** — [`ai-services/internal/pkg/catalog/apiserver/services/deletion/deletion.go`](ai-services/internal/pkg/catalog/apiserver/services/deletion/deletion.go), [`ai-services/internal/pkg/catalog/apiserver/repository/application_service.go`](ai-services/internal/pkg/catalog/apiserver/repository/application_service.go)
+- **Status** — [ ] pending
+
+### 8. Add a `DigitizeSyncClient` for connector-driven ingest and delete `[catalog — ConnectorSyncService]`
+- **Intent** — Create a focused HTTP client in the connectors package that wraps the two digitize operations needed by the sync service: (a) submit a file for ingestion and (b) delete a document by name. This keeps all digitize HTTP concerns in one place and mirrors the pattern in [`ai-services/internal/pkg/application/common/backup/digitize.go`](ai-services/internal/pkg/application/common/backup/digitize.go).
+- **Expected Outcomes** — A `DigitizeSyncClient` struct exists with two methods: `IngestFile(ctx, filename, reader io.Reader) (jobID string, error)` and `DeleteByName(ctx, filename string) error`. `DeleteByName` handles the lookup + delete two-step internally.
+- **Todo List**
+  1. Add `digitize_client.go` in `ai-services/internal/pkg/catalog/apiserver/services/connectors/`.
+  2. Define `DigitizeSyncClient` with a `*resty.Client` base URL set to the application's digitize endpoint. Construct it via `NewDigitizeSyncClient(digitizeURL string)` following the TLS-aware pattern in `NewDigitizeBackupClient`.
+  3. Implement `IngestFile`: build a multipart POST to `/v1/jobs?operation=ingestion`, attach the file bytes as a `files` field using resty's `SetFileReader`, and return the `job_id` from the `{"job_id": "..."}` response body.
+  4. Implement `DeleteByName`:
+     - Call `GET /v1/documents?name={filename}&limit=10` and unmarshal the `DocumentsListResponse` (`data[].id`, `data[].name`).
+     - Find the entry whose `name` exactly matches the given filename; if none is found, return `nil` (already gone — idempotent).
+     - Call `DELETE /v1/documents/{doc_id}` and treat a `404` response as success (idempotent).
+  5. Return typed errors (HTTP status + body) from both methods so the caller can decide whether to mark the connector as `degraded` or log a non-fatal warning.
+- **Relevant Context** — [`ai-services/internal/pkg/application/common/backup/digitize.go`](ai-services/internal/pkg/application/common/backup/digitize.go), [`services/digitize/api/v1/documents.py`](services/digitize/api/v1/documents.py), [`services/digitize/api/v1/jobs.py`](services/digitize/api/v1/jobs.py), [`services/digitize/models.py`](services/digitize/models.py)
+- **Status** — [ ] pending
+
+### 9. Implement the three file-change handlers in `ConnectorSyncService` `[catalog — ConnectorSyncService]`
+- **Intent** — Add the logic that processes a `ScanResult` inside the sync loop: ingest new files, delete-then-reingest modified files, and delete removed files, using `DigitizeSyncClient`.
+- **Expected Outcomes** — After a scan cycle completes, every file in `ToIngest` is submitted to digitize, every file in `ToReIngest` has its old document deleted and is re-submitted, and every file in `ToRemove` has its document deleted from digitize and its checksum record removed from the DB.
+- **Todo List**
+  1. In `sync.go`, after calling `SSHConnector.Scan()`, instantiate a `DigitizeSyncClient` using the digitize endpoint URL resolved from the connector's attached application service record.
+  2. **New file** — For each `RemoteFile` in `ScanResult.ToIngest`:
+     - Open the file over SFTP (stream bytes, do not buffer the entire file in memory).
+     - Call `DigitizeSyncClient.IngestFile(ctx, filepath.Base(f.Path), reader)`.
+     - On success, upsert the `ConnectorFileChecksum` record (path, checksum, size, `last_seen_at`, `ingested_at = now`).
+     - On error, log the failure and record it for `sync_status` aggregation; do **not** abort the entire cycle.
+  3. **Modified file** — For each `RemoteFile` in `ScanResult.ToReIngest`:
+     - Call `DigitizeSyncClient.DeleteByName(ctx, filepath.Base(f.Path))` to remove the old document (idempotent if already gone).
+     - Open the updated file over SFTP and call `DigitizeSyncClient.IngestFile(...)` with the new bytes.
+     - On success, upsert the `ConnectorFileChecksum` record with the new checksum and `ingested_at = now`.
+     - On error, log and continue (partial-error handling, same as new-file case).
+  4. **Deleted file** — For each `RemoteFile` in `ScanResult.ToRemove`:
+     - Call `DigitizeSyncClient.DeleteByName(ctx, filepath.Base(f.Path))`.
+     - On success (or `404`/already-gone), call `ConnectorFileChecksumRepository.DeleteChecksum(connectorID, f.Path)` to remove the registry entry.
+     - On hard error from digitize, log and continue; do not delete the checksum record so the file remains in `ToRemove` on the next cycle.
+  5. After all three slices are processed, set `connector.sync_status` to `ok` if zero errors occurred, or `partial_error` if any file-level errors were recorded.
+- **Relevant Context** — `ai-services/internal/pkg/catalog/apiserver/services/connectors/sync.go`, `ai-services/internal/pkg/catalog/apiserver/services/connectors/sftp_scanner.go` (`ScanResult`, `RemoteFile`), `ai-services/internal/pkg/catalog/db/repository` (`ConnectorFileChecksumRepository.UpsertChecksum`, `DeleteChecksum`), [`ai-services/internal/pkg/catalog/apiserver/services/sync/sync_service.go`](ai-services/internal/pkg/catalog/apiserver/services/sync/sync_service.go)
 - **Status** — [ ] pending
