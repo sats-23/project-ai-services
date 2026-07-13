@@ -82,8 +82,8 @@ Digitize pod starts
       → For each file: streams content through SHA-256 hasher (no full buffering)
       → Loads per-file checksum registry from digitize's own Postgres
       → Computes diff: new → ingest, changed → re-ingest, removed → delete document
-      → For new/changed files: stages file bytes and calls internal ingest pipeline
-      → For removed files: deletes document and checksum record
+      → For new/changed files: stages file bytes and calls internal ingest pipeline directly
+      → For removed files: deletes document via internal pipeline and removes checksum record
       → Upserts checksum registry with updated checksums and timestamps
 ```
 
@@ -93,8 +93,9 @@ Digitize pod starts
 |---|---|---|
 | `doc_id` resolution strategy | Look up by filename at delete time — no `doc_id` stored in the registry | Avoids storing digitize-internal IDs in the catalog registry; idempotent for already-deleted docs |
 | Partial failure handling | Log and continue per-file; set `partial_error` sync status | A single bad file must not abort the entire sync cycle for a connector |
-| File streaming | Stream SFTP bytes directly into the HTTP multipart body; no full-file buffer | Avoids OOM on large files |
-| Delete idempotency | Treat `404` from `DELETE /v1/documents/{id}` as success | Handles re-runs after partial failures without error noise |
+| File streaming | Stream SFTP bytes directly into the ingest pipeline; no full-file buffer | Avoids OOM on large files |
+| Delete idempotency | Treat missing document as success | Handles re-runs after partial failures without error noise |
+| Sync logic ownership | Digitize owns all scanning, diffing, ingesting, and deleting | Catalog never calls digitize at runtime; no HTTP round-trips from catalog to digitize during sync |
 
 ---
 
@@ -165,15 +166,22 @@ Digitize pod starts
 - **Status** — [ ] pending
 
 ### 6. Implement the SFTP scanner and sync worker inside digitize `[digitize]`
-- **Intent** — Add the runtime file-scanning and change-detection logic entirely within the digitize service. A background worker opens an SFTP session using the injected credentials, walks the remote directory, computes SHA-256 checksums, diffs against the stored registry, and feeds new/changed files directly into the existing ingest pipeline. Deleted remote files are removed from the index. No calls to catalog are made at runtime.
-- **Expected Outcomes** — When `SSH_ENABLED=true`, digitize starts a background sync worker on startup. The worker periodically scans the remote path, detects changes via its own checksum registry, and self-ingests new or modified files using the existing `POST /v1/jobs` ingest pipeline. Removed files are deleted from the document store and the checksum registry.
+- **Intent** — Add the runtime file-scanning, change-detection, ingest, and delete logic entirely within the digitize service. A background worker opens an SFTP session using the injected credentials, walks the remote directory, computes SHA-256 checksums, diffs against the stored registry, and feeds new/changed files directly into the existing internal ingest pipeline. Deleted remote files are removed from the document store via the internal pipeline. No calls to catalog are made at runtime. This sub-task replaces all sync responsibility previously described in the catalog-side ConnectorSyncService (former sub-tasks 8 and 9).
+- **Expected Outcomes** — When `SSH_ENABLED=true`, digitize starts a background sync worker on startup. The worker periodically scans the remote path, detects changes via its own checksum registry, and self-ingests new or modified files using the existing internal ingest pipeline. Removed files are deleted from the document store and the checksum registry. Catalog is never called by digitize during sync.
 - **Todo List**
   1. Add `services/digitize/connector/sftp_scanner.py`. Implement `SFTPScanner` using `paramiko` for SSH/SFTP: `connect()` opens an SFTP session using the PEM private key from `settings.connector.SSH_PRIVATE_KEY_PEM`; `scan()` recursively walks `settings.connector.SSH_REMOTE_PATH`, streams each file's bytes through `hashlib.sha256` without buffering the full file in memory, and returns a list of `RemoteFile(path, size, checksum)` objects; `download_file(remote_path)` streams a single file's bytes for staging.
-  2. Add `services/digitize/connector/sync_worker.py`. Implement `ConnectorSyncWorker` as a background thread: on each tick, call `SFTPScanner.scan()` to get the current remote file list; load `list_file_checksums()` from DB; compute the diff — files absent in DB → ingest, files with changed checksum → re-ingest, files in DB absent from remote → delete; for ingest/re-ingest, download the file via `SFTPScanner.download_file()`, stage it to the digitize staging directory, and call the internal ingest logic directly (reuse the same path as `POST /v1/jobs` with `operation=ingestion`); for deleted files, call the document delete path and `delete_file_checksum(remote_path)`; after each file is processed, call `upsert_file_checksum()` to update the registry.
+  2. Add `services/digitize/connector/sync_worker.py`. Implement `ConnectorSyncWorker` as a background thread:
+     - On each tick, call `SFTPScanner.scan()` to get the current remote file list.
+     - Load `list_file_checksums()` from DB to build the known-state registry.
+     - Compute the diff: files absent in DB → **ingest**, files with a changed checksum → **re-ingest**, files in DB absent from remote → **delete**.
+     - **New file**: download via `SFTPScanner.download_file()`, stage to the digitize staging directory, and call the internal ingest pipeline directly (same code path as `POST /v1/jobs` with `operation=ingestion`). On success, call `upsert_file_checksum()`. On error, log and continue — do not abort the cycle.
+     - **Modified file**: call the internal document-delete pipeline to remove the old document (treat missing document as success — idempotent), then download and re-ingest as above. On success, call `upsert_file_checksum()` with updated checksum and `ingested_at = now`. On error, log and continue.
+     - **Deleted file**: call the internal document-delete pipeline to remove the document (treat missing as success). On success, call `delete_file_checksum(remote_path)` to remove the registry entry. If the delete pipeline returns a hard error, log and continue — keep the checksum record so the file remains in the delete diff on the next cycle.
+     - After all three slices are processed, record the sync outcome (`ok` if zero file-level errors, `partial_error` otherwise) in the digitize logs. No sync status is written back to catalog.
   3. The sync interval is read from `settings.connector.SSH_SYNC_INTERVAL_SECONDS`. The worker runs as a daemon thread so it does not block application shutdown.
   4. Start `ConnectorSyncWorker` during the FastAPI app lifespan startup in [`services/digitize/app.py`](services/digitize/app.py) only when `settings.connector.SSH_ENABLED` is `true`. Log clearly when the worker starts and what remote path and interval it uses.
   5. Keep scanner and worker fully encapsulated in the `connector/` sub-package. No connector-specific logic leaks into the job, document, or pipeline modules.
-- **Relevant Context** — [`services/digitize/app.py`](services/digitize/app.py), [`services/digitize/utils/storage.py`](services/digitize/utils/storage.py), [`services/digitize/utils/db.py`](services/digitize/utils/db.py), [`services/digitize/pipeline/ingest.py`](services/digitize/pipeline/ingest.py), [`services/digitize/api/v1/jobs.py`](services/digitize/api/v1/jobs.py)
+- **Relevant Context** — [`services/digitize/app.py`](services/digitize/app.py), [`services/digitize/utils/storage.py`](services/digitize/utils/storage.py), [`services/digitize/utils/db.py`](services/digitize/utils/db.py), [`services/digitize/pipeline/ingest.py`](services/digitize/pipeline/ingest.py), [`services/digitize/api/v1/jobs.py`](services/digitize/api/v1/jobs.py), [`services/digitize/api/v1/documents.py`](services/digitize/api/v1/documents.py)
 - **Status** — [ ] pending
 
 ### 7. Wire operational lifecycle and cleanup `[catalog]`
@@ -186,42 +194,4 @@ Digitize pod starts
   4. Keep connector cleanup logic separate from component and service deletion logic in [`ai-services/internal/pkg/catalog/apiserver/services/deletion/deletion.go`](ai-services/internal/pkg/catalog/apiserver/services/deletion/deletion.go).
   5. Add connector status reporting fields to the UI-facing connector API so the UI can show health, source type, auth status, and count of attached applications.
 - **Relevant Context** — [`ai-services/internal/pkg/catalog/apiserver/services/deletion/deletion.go`](ai-services/internal/pkg/catalog/apiserver/services/deletion/deletion.go), [`ai-services/internal/pkg/catalog/apiserver/repository/application_service.go`](ai-services/internal/pkg/catalog/apiserver/repository/application_service.go)
-- **Status** — [ ] pending
-
-### 8. Add a `DigitizeSyncClient` for connector-driven ingest and delete `[catalog — ConnectorSyncService]`
-- **Intent** — Create a focused HTTP client in the connectors package that wraps the two digitize operations needed by the sync service: (a) submit a file for ingestion and (b) delete a document by name. This keeps all digitize HTTP concerns in one place and mirrors the pattern in [`ai-services/internal/pkg/application/common/backup/digitize.go`](ai-services/internal/pkg/application/common/backup/digitize.go).
-- **Expected Outcomes** — A `DigitizeSyncClient` struct exists with two methods: `IngestFile(ctx, filename, reader io.Reader) (jobID string, error)` and `DeleteByName(ctx, filename string) error`. `DeleteByName` handles the lookup + delete two-step internally.
-- **Todo List**
-  1. Add `digitize_client.go` in `ai-services/internal/pkg/catalog/apiserver/services/connectors/`.
-  2. Define `DigitizeSyncClient` with a `*resty.Client` base URL set to the application's digitize endpoint. Construct it via `NewDigitizeSyncClient(digitizeURL string)` following the TLS-aware pattern in `NewDigitizeBackupClient`.
-  3. Implement `IngestFile`: build a multipart POST to `/v1/jobs?operation=ingestion`, attach the file bytes as a `files` field using resty's `SetFileReader`, and return the `job_id` from the `{"job_id": "..."}` response body.
-  4. Implement `DeleteByName`:
-     - Call `GET /v1/documents?name={filename}&limit=10` and unmarshal the `DocumentsListResponse` (`data[].id`, `data[].name`).
-     - Find the entry whose `name` exactly matches the given filename; if none is found, return `nil` (already gone — idempotent).
-     - Call `DELETE /v1/documents/{doc_id}` and treat a `404` response as success (idempotent).
-  5. Return typed errors (HTTP status + body) from both methods so the caller can decide whether to mark the connector as `degraded` or log a non-fatal warning.
-- **Relevant Context** — [`ai-services/internal/pkg/application/common/backup/digitize.go`](ai-services/internal/pkg/application/common/backup/digitize.go), [`services/digitize/api/v1/documents.py`](services/digitize/api/v1/documents.py), [`services/digitize/api/v1/jobs.py`](services/digitize/api/v1/jobs.py), [`services/digitize/models.py`](services/digitize/models.py)
-- **Status** — [ ] pending
-
-### 9. Implement the three file-change handlers in `ConnectorSyncService` `[catalog — ConnectorSyncService]`
-- **Intent** — Add the logic that processes a `ScanResult` inside the sync loop: ingest new files, delete-then-reingest modified files, and delete removed files, using `DigitizeSyncClient`.
-- **Expected Outcomes** — After a scan cycle completes, every file in `ToIngest` is submitted to digitize, every file in `ToReIngest` has its old document deleted and is re-submitted, and every file in `ToRemove` has its document deleted from digitize and its checksum record removed from the DB.
-- **Todo List**
-  1. In `sync.go`, after calling `SSHConnector.Scan()`, instantiate a `DigitizeSyncClient` using the digitize endpoint URL resolved from the connector's attached application service record.
-  2. **New file** — For each `RemoteFile` in `ScanResult.ToIngest`:
-     - Open the file over SFTP (stream bytes, do not buffer the entire file in memory).
-     - Call `DigitizeSyncClient.IngestFile(ctx, filepath.Base(f.Path), reader)`.
-     - On success, upsert the `ConnectorFileChecksum` record (path, checksum, size, `last_seen_at`, `ingested_at = now`).
-     - On error, log the failure and record it for `sync_status` aggregation; do **not** abort the entire cycle.
-  3. **Modified file** — For each `RemoteFile` in `ScanResult.ToReIngest`:
-     - Call `DigitizeSyncClient.DeleteByName(ctx, filepath.Base(f.Path))` to remove the old document (idempotent if already gone).
-     - Open the updated file over SFTP and call `DigitizeSyncClient.IngestFile(...)` with the new bytes.
-     - On success, upsert the `ConnectorFileChecksum` record with the new checksum and `ingested_at = now`.
-     - On error, log and continue (partial-error handling, same as new-file case).
-  4. **Deleted file** — For each `RemoteFile` in `ScanResult.ToRemove`:
-     - Call `DigitizeSyncClient.DeleteByName(ctx, filepath.Base(f.Path))`.
-     - On success (or `404`/already-gone), call `ConnectorFileChecksumRepository.DeleteChecksum(connectorID, f.Path)` to remove the registry entry.
-     - On hard error from digitize, log and continue; do not delete the checksum record so the file remains in `ToRemove` on the next cycle.
-  5. After all three slices are processed, set `connector.sync_status` to `ok` if zero errors occurred, or `partial_error` if any file-level errors were recorded.
-- **Relevant Context** — `ai-services/internal/pkg/catalog/apiserver/services/connectors/sync.go`, `ai-services/internal/pkg/catalog/apiserver/services/connectors/sftp_scanner.go` (`ScanResult`, `RemoteFile`), `ai-services/internal/pkg/catalog/db/repository` (`ConnectorFileChecksumRepository.UpsertChecksum`, `DeleteChecksum`), [`ai-services/internal/pkg/catalog/apiserver/services/sync/sync_service.go`](ai-services/internal/pkg/catalog/apiserver/services/sync/sync_service.go)
 - **Status** — [ ] pending
