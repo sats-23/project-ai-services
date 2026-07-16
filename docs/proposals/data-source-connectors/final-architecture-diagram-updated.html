@@ -1,0 +1,267 @@
+
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Data Source Connector Architecture</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0d1117;
+    color: #e6edf3;
+    font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+    font-size: 12px;
+    line-height: 1.45;
+    padding: 24px 12px 40px;
+  }
+  h1 {
+    text-align: center;
+    font-size: 15px;
+    font-weight: 600;
+    color: #e6edf3;
+    margin-bottom: 28px;
+    letter-spacing: .02em;
+  }
+  .diagram { overflow-x: auto; }
+  svg { display: block; margin: 0 auto; }
+  .footer {
+    margin-top: 32px;
+    border-top: 1px solid #30363d;
+    padding-top: 10px;
+    text-align: center;
+    font-size: 11px;
+    color: #57606a;
+  }
+</style>
+</head>
+<body>
+
+<h1>Data Source Connector — Architecture Sequence Diagram</h1>
+
+<div class="diagram">
+<svg xmlns="http://www.w3.org/2000/svg" width="1360" height="1050" font-family="-apple-system,'Segoe UI',system-ui,sans-serif" font-size="11.5">
+
+  <defs>
+    <marker id="arr">
+      <path d="M0,0 L0,6 L8,3 z" fill="#58a6ff"></path>
+    </marker>
+    <marker id="arr-dash">
+      <path d="M0,0 L0,6 L8,3 z" fill="#8b949e"></path>
+    </marker>
+    <marker id="arr-self">
+      <path d="M0,0 L0,6 L6,3 z" fill="#d2a679"></path>
+    </marker>
+  </defs>
+
+  
+  <rect width="1360" height="1050" fill="#0d1117"></rect>
+
+  
+  <rect x="0" y="0" width="170" height="1050" fill="#161b22" opacity=".6"></rect>
+  <rect x="170" y="0" width="170" height="1050" fill="#0d1117" opacity=".6"></rect>
+  <rect x="340" y="0" width="155" height="1050" fill="#161b22" opacity=".6"></rect>
+  <rect x="495" y="0" width="160" height="1050" fill="#0d1117" opacity=".6"></rect>
+  <rect x="655" y="0" width="165" height="1050" fill="#161b22" opacity=".6"></rect>
+  <rect x="820" y="0" width="175" height="1050" fill="#0d1117" opacity=".6"></rect>
+  <rect x="995" y="0" width="185" height="1050" fill="#161b22" opacity=".6"></rect>
+  <rect x="1180" y="0" width="180" height="1050" fill="#0d1117" opacity=".6"></rect>
+
+  
+  <rect x="10" y="12" width="150" height="32" rx="4" fill="#21262d" stroke="#30363d" stroke-width="1"></rect>
+  <text x="85" y="33" text-anchor="middle" fill="#e6edf3" font-weight="600">User</text>
+
+  <rect x="170" y="12" width="170" height="32" rx="4" fill="#21262d" stroke="#30363d" stroke-width="1"></rect>
+  <text x="255" y="33" text-anchor="middle" fill="#e6edf3" font-weight="600">Catalog API</text>
+
+  <rect x="340" y="12" width="155" height="32" rx="4" fill="#21262d" stroke="#30363d" stroke-width="1"></rect>
+  <text x="418" y="27" text-anchor="middle" fill="#e6edf3" font-weight="600">Catalog DB</text>
+  <text x="418" y="40" text-anchor="middle" fill="#8b949e" font-size="10">(encrypted)</text>
+
+  <rect x="495" y="12" width="160" height="32" rx="4" fill="#21262d" stroke="#30363d" stroke-width="1"></rect>
+  <text x="575" y="33" text-anchor="middle" fill="#e6edf3" font-weight="600">Deployer</text>
+
+  <rect x="655" y="12" width="165" height="32" rx="4" fill="#21262d" stroke="#30363d" stroke-width="1"></rect>
+  <text x="737" y="33" text-anchor="middle" fill="#e6edf3" font-weight="600">Podman Secrets</text>
+
+  <rect x="820" y="12" width="175" height="32" rx="4" fill="#21262d" stroke="#30363d" stroke-width="1"></rect>
+  <text x="907" y="27" text-anchor="middle" fill="#e6edf3" font-weight="600">Digitize Pod</text>
+  <text x="907" y="40" text-anchor="middle" fill="#8b949e" font-size="10">(mTLS)</text>
+
+  <rect x="995" y="12" width="185" height="32" rx="4" fill="#21262d" stroke="#30363d" stroke-width="1"></rect>
+  <text x="1087" y="27" text-anchor="middle" fill="#e6edf3" font-weight="600">Digitize DB</text>
+  <text x="1087" y="40" text-anchor="middle" fill="#8b949e" font-size="10">(envelope encrypted)</text>
+
+  <rect x="1185" y="12" width="165" height="32" rx="4" fill="#21262d" stroke="#30363d" stroke-width="1"></rect>
+  <text x="1267" y="33" text-anchor="middle" fill="#e6edf3" font-weight="600">Remote SFTP Server</text>
+
+  
+  <line x1="85" y1="44" x2="85" y2="1010" stroke="#30363d" stroke-width="1"></line>
+  <line x1="255" y1="44" x2="255" y2="1010" stroke="#30363d" stroke-width="1"></line>
+  <line x1="418" y1="44" x2="418" y2="1010" stroke="#30363d" stroke-width="1"></line>
+  <line x1="575" y1="44" x2="575" y2="1010" stroke="#30363d" stroke-width="1"></line>
+  <line x1="737" y1="44" x2="737" y2="1010" stroke="#30363d" stroke-width="1"></line>
+  <line x1="907" y1="44" x2="907" y2="1010" stroke="#30363d" stroke-width="1"></line>
+  <line x1="1087" y1="44" x2="1087" y2="1010" stroke="#30363d" stroke-width="1"></line>
+  <line x1="1267" y1="44" x2="1267" y2="1010" stroke="#30363d" stroke-width="1"></line>
+
+  
+  <rect x="4" y="56" width="1352" height="14" rx="2" fill="#1c2128"></rect>
+  <text x="12" y="67" fill="#79c0ff" font-size="10" font-weight="700">CONNECTOR CREATION</text>
+
+  <line x1="85" y1="82" x2="248" y2="82" stroke="#58a6ff" stroke-width="1.2" marker-end="url(#arr)"></line>
+  <text x="165" y="78" text-anchor="middle" fill="#58a6ff">POST /connectors  {host, user, path}</text>
+
+  <path d="M255,97 Q295,97 295,107 Q295,117 255,117" fill="none" stroke="#d2a679" stroke-width="1.2" marker-end="url(#arr-self)"></path>
+  <text x="300" y="105" fill="#d2a679">Generate Ed25519 keypair</text>
+  <text x="300" y="117" fill="#e3b341">→  privkey_pem,  public_key  (in memory)</text>
+
+  <path d="M255,131 Q295,131 295,141 Q295,151 255,151" fill="none" stroke="#d2a679" stroke-width="1.2" marker-end="url(#arr-self)"></path>
+  <text x="300" y="139" fill="#d2a679">HKDF(catalog_KEK, "connector-key-v1:&lt;id&gt;")</text>
+  <text x="300" y="151" fill="#e3b341">= derived_key</text>
+
+  <path d="M255,165 Q295,165 295,175 Q295,185 255,185" fill="none" stroke="#d2a679" stroke-width="1.2" marker-end="url(#arr-self)"></path>
+  <text x="300" y="173" fill="#d2a679">AES-256-GCM encrypt(privkey_pem,  derived_key)</text>
+  <text x="300" y="185" fill="#e3b341">= encrypted_pem</text>
+
+  <line x1="255" y1="200" x2="411" y2="200" stroke="#58a6ff" stroke-width="1.2" marker-end="url(#arr)"></line>
+  <text x="335" y="196" text-anchor="middle" fill="#58a6ff">Store  encrypted_pem  +  public_key</text>
+
+  <line x1="248" y1="215" x2="92" y2="215" stroke="#8b949e" stroke-width="1" marker-end="url(#arr-dash)"></line>
+  <text x="168" y="211" text-anchor="middle" fill="#8b949e">↩  Return public_key  (add to authorized_keys)</text>
+
+  <line x1="85" y1="232" x2="248" y2="232" stroke="#58a6ff" stroke-width="1.2" marker-end="url(#arr)"></line>
+  <text x="165" y="228" text-anchor="middle" fill="#58a6ff">POST /connectors/:id/validate</text>
+
+  <path d="M255,247 Q295,247 295,257 Q295,267 255,267" fill="none" stroke="#d2a679" stroke-width="1.2" marker-end="url(#arr-self)"></path>
+  <text x="300" y="255" fill="#d2a679">Decrypt encrypted_pem  with derived_key</text>
+  <text x="300" y="267" fill="#e3b341">→  privkey_pem  (in memory)</text>
+
+  <line x1="255" y1="282" x2="1260" y2="282" stroke="#58a6ff" stroke-width="1.2" marker-end="url(#arr)"></line>
+  <text x="760" y="278" text-anchor="middle" fill="#58a6ff">SSH dial  (capture host_key_fingerprint)</text>
+
+  <line x1="255" y1="298" x2="411" y2="298" stroke="#58a6ff" stroke-width="1.2" marker-end="url(#arr)"></line>
+  <text x="335" y="294" text-anchor="middle" fill="#58a6ff">Store  host_key_fingerprint</text>
+
+  
+  <rect x="4" y="316" width="1352" height="14" rx="2" fill="#1c2128"></rect>
+  <text x="12" y="327" fill="#79c0ff" font-size="10" font-weight="700">NEW DIGITIZE APPLICATION</text>
+
+  <line x1="85" y1="342" x2="248" y2="342" stroke="#58a6ff" stroke-width="1.2" marker-end="url(#arr)"></line>
+  <text x="165" y="338" text-anchor="middle" fill="#58a6ff">POST /applications/:id/connectors</text>
+
+  <line x1="255" y1="358" x2="568" y2="358" stroke="#58a6ff" stroke-width="1.2" marker-end="url(#arr)"></line>
+  <text x="412" y="354" text-anchor="middle" fill="#58a6ff">Attach  +  push to live pod</text>
+
+  <path d="M575,373 Q615,373 615,383 Q615,393 575,393" fill="none" stroke="#d2a679" stroke-width="1.2" marker-end="url(#arr-self)"></path>
+  <text x="620" y="381" fill="#d2a679">Generate  digitize_KEK = rand(32)</text>
+  <text x="620" y="393" fill="#e3b341">= digitize_KEK</text>
+
+  <path d="M575,407 Q615,407 615,417 Q615,427 575,427" fill="none" stroke="#d2a679" stroke-width="1.2" marker-end="url(#arr-self)"></path>
+  <text x="620" y="415" fill="#d2a679">Generate TLS cert / key for digitize pod</text>
+  <text x="620" y="427" fill="#e3b341">= tls_cert,  tls_key</text>
+
+  <line x1="575" y1="442" x2="730" y2="442" stroke="#58a6ff" stroke-width="1.2" marker-end="url(#arr)"></line>
+  <text x="652" y="438" text-anchor="middle" fill="#58a6ff">Mount  digitize_KEK,  tls_cert,  tls_key</text>
+
+  
+  <rect x="4" y="460" width="1352" height="14" rx="2" fill="#1c2128"></rect>
+  <text x="12" y="471" fill="#79c0ff" font-size="10" font-weight="700">CATALOG → DIGITIZE  PUSH  (ENVELOPE ENCRYPTION)</text>
+
+  <path d="M255,487 Q295,487 295,497 Q295,507 255,507" fill="none" stroke="#d2a679" stroke-width="1.2" marker-end="url(#arr-self)"></path>
+  <text x="300" y="495" fill="#d2a679">Decrypt encrypted_pem  with derived_key</text>
+  <text x="300" y="507" fill="#e3b341">→  privkey_pem  (in memory)</text>
+
+  <path d="M255,521 Q295,521 295,531 Q295,541 255,541" fill="none" stroke="#d2a679" stroke-width="1.2" marker-end="url(#arr-self)"></path>
+  <text x="300" y="529" fill="#d2a679">Generate fresh DEK = rand(32)</text>
+  <text x="300" y="541" fill="#e3b341">= DEK</text>
+
+  <path d="M255,555 Q295,555 295,565 Q295,575 255,575" fill="none" stroke="#d2a679" stroke-width="1.2" marker-end="url(#arr-self)"></path>
+  <text x="300" y="563" fill="#d2a679">AES-256-GCM encrypt(privkey_pem,  DEK)</text>
+  <text x="300" y="575" fill="#e3b341">= private_key_ciphertext</text>
+
+  <path d="M255,589 Q295,589 295,599 Q295,609 255,609" fill="none" stroke="#d2a679" stroke-width="1.2" marker-end="url(#arr-self)"></path>
+  <text x="300" y="597" fill="#d2a679">AES-256-GCM encrypt(DEK,  digitize_KEK)</text>
+  <text x="300" y="609" fill="#e3b341">= encrypted_dek</text>
+
+  <line x1="255" y1="626" x2="900" y2="626" stroke="#58a6ff" stroke-width="1.2" marker-end="url(#arr)"></line>
+  <text x="578" y="618" text-anchor="middle" fill="#58a6ff">HTTPS POST /v1/connectors  (mTLS, cert-pinned)</text>
+  <text x="578" y="630" text-anchor="middle" fill="#8b949e" font-size="10">Body: { private_key_ciphertext,  encrypted_dek, … }</text>
+
+  <line x1="907" y1="645" x2="1080" y2="645" stroke="#58a6ff" stroke-width="1.2" marker-end="url(#arr)"></line>
+  <text x="994" y="641" text-anchor="middle" fill="#58a6ff">Store  (private_key_ciphertext,  encrypted_dek)</text>
+
+  
+  <rect x="4" y="668" width="1352" height="14" rx="2" fill="#1c2128"></rect>
+  <text x="12" y="679" fill="#79c0ff" font-size="10" font-weight="700">SYNC WORKER — DECRYPT &amp; USE  (DIGITIZE POD)</text>
+
+  <line x1="1080" y1="695" x2="914" y2="695" stroke="#58a6ff" stroke-width="1.2" marker-end="url(#arr)"></line>
+  <text x="994" y="691" text-anchor="middle" fill="#58a6ff">Load  (private_key_ciphertext,  encrypted_dek)</text>
+
+  <path d="M907,710 Q947,710 947,720 Q947,730 907,730" fill="none" stroke="#d2a679" stroke-width="1.2" marker-end="url(#arr-self)"></path>
+  <text x="952" y="718" fill="#d2a679">Decrypt encrypted_dek  with digitize_KEK</text>
+  <text x="952" y="730" fill="#e3b341">→  DEK  (in memory)</text>
+
+  <path d="M907,744 Q947,744 947,754 Q947,764 907,764" fill="none" stroke="#d2a679" stroke-width="1.2" marker-end="url(#arr-self)"></path>
+  <text x="952" y="752" fill="#d2a679">Decrypt private_key_ciphertext  with DEK</text>
+  <text x="952" y="764" fill="#e3b341">→  privkey_pem  (in memory)</text>
+
+  <line x1="907" y1="780" x2="1260" y2="780" stroke="#58a6ff" stroke-width="1.2" marker-end="url(#arr)"></line>
+  <text x="1083" y="776" text-anchor="middle" fill="#58a6ff">paramiko connect  (strict host key pinning)</text>
+
+  <path d="M907,797 Q947,797 947,807 Q947,817 907,817" fill="none" stroke="#d2a679" stroke-width="1.2" marker-end="url(#arr-self)"></path>
+  <text x="952" y="808" fill="#d2a679">Zeroize  privkey_pem  bytes after use</text>
+
+  
+  <rect x="10" y="835" width="150" height="32" rx="4" fill="#21262d" stroke="#30363d" stroke-width="1"></rect>
+  <text x="85" y="856" text-anchor="middle" fill="#e6edf3" font-weight="600">User</text>
+
+  <rect x="170" y="835" width="170" height="32" rx="4" fill="#21262d" stroke="#30363d" stroke-width="1"></rect>
+  <text x="255" y="856" text-anchor="middle" fill="#e6edf3" font-weight="600">Catalog API</text>
+
+  <rect x="340" y="835" width="155" height="32" rx="4" fill="#21262d" stroke="#30363d" stroke-width="1"></rect>
+  <text x="418" y="850" text-anchor="middle" fill="#e6edf3" font-weight="600">Catalog DB</text>
+  <text x="418" y="863" text-anchor="middle" fill="#8b949e" font-size="10">(encrypted)</text>
+
+  <rect x="495" y="835" width="160" height="32" rx="4" fill="#21262d" stroke="#30363d" stroke-width="1"></rect>
+  <text x="575" y="856" text-anchor="middle" fill="#e6edf3" font-weight="600">Deployer</text>
+
+  <rect x="655" y="835" width="165" height="32" rx="4" fill="#21262d" stroke="#30363d" stroke-width="1"></rect>
+  <text x="737" y="856" text-anchor="middle" fill="#e6edf3" font-weight="600">Podman Secrets</text>
+
+  <rect x="820" y="835" width="175" height="32" rx="4" fill="#21262d" stroke="#30363d" stroke-width="1"></rect>
+  <text x="907" y="850" text-anchor="middle" fill="#e6edf3" font-weight="600">Digitize Pod</text>
+  <text x="907" y="863" text-anchor="middle" fill="#8b949e" font-size="10">(mTLS)</text>
+
+  <rect x="995" y="835" width="185" height="32" rx="4" fill="#21262d" stroke="#30363d" stroke-width="1"></rect>
+  <text x="1087" y="850" text-anchor="middle" fill="#e6edf3" font-weight="600">Digitize DB</text>
+  <text x="1087" y="863" text-anchor="middle" fill="#8b949e" font-size="10">(envelope encrypted)</text>
+
+  <rect x="1185" y="835" width="165" height="32" rx="4" fill="#21262d" stroke="#30363d" stroke-width="1"></rect>
+  <text x="1267" y="856" text-anchor="middle" fill="#e6edf3" font-weight="600">Remote SFTP Server</text>
+
+  
+  <rect x="10" y="878" width="700" height="80" rx="4" fill="#161b22" stroke="#30363d"></rect>
+  <text x="22" y="895" fill="#79c0ff" font-size="10" font-weight="700">LEGEND</text>
+  <path d="M22,915 Q40,915 40,922 Q40,929 22,929" fill="none" stroke="#d2a679" stroke-width="1.2" marker-end="url(#arr-self)"></path>
+  <text x="48" y="921" fill="#d2a679">Self-loop = in-memory operation (encrypt / decrypt / generate)</text>
+  <line x1="22" y1="942" x2="80" y2="942" stroke="#58a6ff" stroke-width="1.2" marker-end="url(#arr)"></line>
+  <text x="88" y="946" fill="#58a6ff">Message between participants</text>
+  <line x1="230" y1="942" x2="288" y2="942" stroke="#8b949e" stroke-width="1" marker-end="url(#arr-dash)"></line>
+  <text x="296" y="946" fill="#8b949e">Return / response</text>
+  <text x="22" y="949" fill="#e3b341" font-size="10">= new_var   italic orange = variable name produced by the operation</text>
+
+  
+  <rect x="720" y="878" width="630" height="80" rx="4" fill="#161b22" stroke="#30363d"></rect>
+  <text x="732" y="895" fill="#79c0ff" font-size="10" font-weight="700">VARIABLE GLOSSARY</text>
+  <text x="732" y="911" fill="#c9d1d9" font-size="10">privkey_pem             Ed25519 private key (PEM, in memory only — never written to disk)</text>
+  <text x="732" y="923" fill="#c9d1d9" font-size="10">encrypted_pem           AES-256-GCM(privkey_pem, derived_key)  →  stored in Catalog DB</text>
+  <text x="732" y="935" fill="#c9d1d9" font-size="10">DEK                     Fresh 32-byte data-encryption key, generated per-connector at push time</text>
+  <text x="732" y="947" fill="#c9d1d9" font-size="10">private_key_ciphertext  AES-256-GCM(privkey_pem, DEK)          →  stored in Digitize DB</text>
+  <text x="732" y="959" fill="#c9d1d9" font-size="10">encrypted_dek           AES-256-GCM(DEK, digitize_KEK)         →  stored in Digitize DB</text>
+
+</svg>
+</div>
+
+<p class="footer">Made with IBM Bob</p>
+</body>
+</html>
