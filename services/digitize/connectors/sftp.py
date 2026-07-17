@@ -26,10 +26,10 @@ logger = get_logger("sftp_connector")
 # ── PoC hardcoded values ─────────────────────────────────────────────────────
 # Fill these in before running.
 
-SFTP_HOST: str = "sftp.example.com"          # e.g. "192.168.1.50"
+SFTP_HOST: str = "10.20.185.60"          # e.g. "192.168.1.50"
 SFTP_PORT: int = 22
-SFTP_USERNAME: str = "rag_user"
-SFTP_REMOTE_PATH: str = "/var/www/documents"  # trailing slash optional
+SFTP_USERNAME: str = "root"
+SFTP_REMOTE_PATH: str = "/var/sats/documents"  # trailing slash optional
 
 # Authentication — exactly one of the two should be set.
 # Option A: password auth
