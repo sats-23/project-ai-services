@@ -52,29 +52,12 @@ spec:
     - name: backend-server
       image: "{{ .Values.digitize.image }}"
       command:
-        - "/var/venv/bin/python"
-        - "-m"
-        - "uvicorn"
-        - "app:app"
-        - "--host"
-        - "0.0.0.0"
-        - "--port"
-        - "4000"
-        - "--loop"
-        - "uvloop"
-        - "--http"
-        - "httptools"
+        - "tail"
+        - "-f"
+        - "/dev/null"
       ports:
         - containerPort: 4000
           name: http
-      livenessProbe:
-        httpGet:
-          path: /health
-          port: 4000
-        initialDelaySeconds: 30
-        periodSeconds: 10
-        timeoutSeconds: 5
-        failureThreshold: 3
       resources:
         requests:
           memory: "50Gi"
