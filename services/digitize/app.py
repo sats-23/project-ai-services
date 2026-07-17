@@ -105,10 +105,27 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.error(f"Error during zombie job recovery: {exc}", exc_info=True)
 
+    # Start SFTP poller.
+    try:
+        from digitize.connectors.poller import poller as _sftp_poller
+        _sftp_poller.start()
+        logger.info("✅ SFTP poller started")
+    except Exception as exc:
+        logger.error(f"Failed to start SFTP poller: {exc}", exc_info=True)
+
     yield
 
     # Shutdown.
     logger.info("Application shutting down...")
+
+    # Stop SFTP poller first (it holds no DB connections itself).
+    try:
+        from digitize.connectors.poller import poller as _sftp_poller
+        _sftp_poller.stop()
+        logger.info("SFTP poller stopped")
+    except Exception as exc:
+        logger.error(f"Error stopping SFTP poller: {exc}", exc_info=True)
+
     try:
         close_db_connections()
         logger.info("Database connections closed")
@@ -137,6 +154,13 @@ tags_metadata = [
     {
         "name": "documents",
         "description": "Document management operations including retrieval and deletion",
+    },
+    {
+        "name": "sftp",
+        "description": (
+            "SFTP connector — poll a remote directory for files and ingest them. "
+            "Uses checksum-based change detection for differential re-ingestion."
+        ),
     },
 ]
 
@@ -210,10 +234,12 @@ async def health_check():
 from digitize.api.v1.jobs import router as jobs_router
 from digitize.api.v1.admin import router as admin_router
 from digitize.api.v1.documents import router as documents_router
+from digitize.api.v1.sftp import router as sftp_router
 
 app.include_router(jobs_router, prefix="/v1/jobs", tags=["jobs"])
 app.include_router(admin_router, prefix="/v1", tags=["jobs"])
 app.include_router(documents_router, prefix="/v1/documents", tags=["documents"])
+app.include_router(sftp_router, prefix="/v1/sftp", tags=["sftp"])
 
 
 if __name__ == "__main__":
