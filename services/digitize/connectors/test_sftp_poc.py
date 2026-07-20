@@ -129,11 +129,11 @@ log = logging.getLogger("sftp_poc_test")
 SFTP_HOST: str = "10.20.185.60"
 SFTP_PORT: int = 22
 SFTP_USERNAME: str = "root"
-SFTP_REMOTE_PATH: str = "/var/sats/documents"   # trailing slash optional
+SFTP_REMOTE_PATH: str = "/root/sats/watch"   # trailing slash optional
 
 # Auth — set exactly one:
 SFTP_PASSWORD: Optional[str] = None              # e.g. "s3cr3t"
-SFTP_PRIVATE_KEY_PATH: Optional[str] = None      # e.g. "/home/you/.ssh/id_rsa"
+SFTP_PRIVATE_KEY_PATH: Optional[str] = "/Users/sats/.ssh/id_ed25519"      # e.g. "/home/you/.ssh/id_rsa"
 SFTP_PRIVATE_KEY_PASSPHRASE: Optional[str] = None
 
 # Displayed in the /v1/sftp/config response in the real service
@@ -147,7 +147,7 @@ SUPPORTED_EXTS = {".pdf", ".docx"}
 # 2. POLL INTERVAL  ← services/digitize/connectors/poller.py::POLL_INTERVAL_SECONDS
 # ─────────────────────────────────────────────────────────────────────────────
 
-POLL_INTERVAL_SECONDS: int = 300  # overridden by --interval CLI flag
+POLL_INTERVAL_SECONDS: int = 20  # overridden by --interval CLI flag
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 3. LOCAL PATHS  ← services/digitize/connectors/poller.py (_STATE_FILE, _DOWNLOAD_BASE)
@@ -177,10 +177,19 @@ def _make_transport():
     transport = paramiko.Transport((SFTP_HOST, SFTP_PORT))
 
     if SFTP_PRIVATE_KEY_PATH:
-        pkey = paramiko.RSAKey.from_private_key_file(
-            SFTP_PRIVATE_KEY_PATH,
-            password=SFTP_PRIVATE_KEY_PASSPHRASE,
-        )
+        pkey = None
+        last_exc: Exception = RuntimeError("No key classes available")
+        for key_cls in paramiko.key_classes:
+            try:
+                pkey = key_cls.from_private_key_file(
+                    SFTP_PRIVATE_KEY_PATH,
+                    password=SFTP_PRIVATE_KEY_PASSPHRASE,
+                )
+                break
+            except Exception as exc:  # noqa: BLE001
+                last_exc = exc
+        if pkey is None:
+            raise last_exc
         transport.connect(username=SFTP_USERNAME, pkey=pkey)
         log.debug(f"Connected to {SFTP_HOST} via private key")
     elif SFTP_PASSWORD is not None:
@@ -673,7 +682,7 @@ def _print_section(title: str) -> None:
     log.info("=" * width)
 
 
-def run_tests(max_cycles: int, interval: int) -> None:
+def run_tests(max_cycles: Optional[int], interval: int) -> None:
     """
     Execute the test sequence.
 
@@ -683,7 +692,8 @@ def run_tests(max_cycles: int, interval: int) -> None:
       C) Checksum test — checksum every remote file
       D) Download test — pull all files to /tmp
       E) Diff logic test — simulate new / changed / removed
-      F) Polling loop test — start poller, wait for max_cycles ticks, stop
+      F) Polling loop test — start poller, poll indefinitely (or for
+         max_cycles ticks when max_cycles is not None), stop on KeyboardInterrupt
     """
     _print_section("STEP A — Credential validation")
     if not SFTP_PASSWORD and not SFTP_PRIVATE_KEY_PATH:
@@ -787,7 +797,8 @@ def run_tests(max_cycles: int, interval: int) -> None:
         log.info("Skipping diff simulation — no remote files to work with")
 
     # ── F: polling loop ───────────────────────────────────────────────────────
-    _print_section(f"STEP F — Polling loop ({max_cycles} cycle(s), interval={interval}s)")
+    cycles_label = f"{max_cycles} cycle(s)" if max_cycles is not None else "∞ cycles"
+    _print_section(f"STEP F — Polling loop ({cycles_label}, interval={interval}s)")
 
     # Reset state so the poller starts clean
     if _STATE_FILE.exists():
@@ -803,7 +814,8 @@ def run_tests(max_cycles: int, interval: int) -> None:
     def _counting_poll(state: dict) -> dict:
         nonlocal cycle_count
         cycle_count += 1
-        log.info(f"  [Cycle {cycle_count}/{max_cycles}]")
+        label = f"{cycle_count}/{max_cycles}" if max_cycles is not None else str(cycle_count)
+        log.info(f"  [Cycle {label}]")
         result = real_poll(state)
         return result
 
@@ -821,14 +833,22 @@ def run_tests(max_cycles: int, interval: int) -> None:
         except Exception as exc:
             self.last_error = str(exc)
             log.error(f"Tick failed: {exc}", exc_info=True)
-        if cycle_count >= max_cycles:
+        if max_cycles is not None and cycle_count >= max_cycles:
             self._stop_event.set()
 
     poller._tick = _patched_tick
 
     poller.start()
-    poller._thread.join(timeout=max_cycles * interval + 30)
-    poller.stop()
+    try:
+        if max_cycles is not None:
+            poller._thread.join(timeout=max_cycles * interval + 30)
+        else:
+            while poller._thread.is_alive():
+                poller._thread.join(timeout=1)
+    except KeyboardInterrupt:
+        log.info("Interrupted — stopping poller…")
+    finally:
+        poller.stop()
 
     # Final status
     log.info(f"Cycles completed: {cycle_count}")
@@ -845,8 +865,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--cycles",
         type=int,
-        default=2,
-        help="Number of poll cycles to run before exiting (default: 2)",
+        default=0,
+        help="Number of poll cycles to run before exiting (default: 0 = run forever until Ctrl-C)",
     )
     parser.add_argument(
         "--interval",
@@ -869,4 +889,4 @@ if __name__ == "__main__":
     _TMP_BASE.mkdir(parents=True, exist_ok=True)
     log.info(f"Temp directory: {_TMP_BASE}")
 
-    run_tests(max_cycles=args.cycles, interval=args.interval)
+    run_tests(max_cycles=args.cycles if args.cycles > 0 else None, interval=args.interval)
