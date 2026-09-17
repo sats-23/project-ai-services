@@ -5,3 +5,5 @@ type: service
 version: "1.0.0"
 certified_by: "Custom"
 standalone: true
+about:
+  - "Returns a JSON greeting at /greeting.json via a lightweight nginx container."
