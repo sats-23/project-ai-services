@@ -13,13 +13,22 @@ spec:
       image: "{{ .Values.helloapi.image }}"
       ports:
         - containerPort: 8080
-      # nginx default port is 80 — remap it to 8080 and inject the greeting
+      # Write greeting.json and a minimal nginx config on port 8080, then start nginx.
       command:
         - /bin/sh
         - -c
         - |
           mkdir -p /usr/share/nginx/html
-          printf '{"greeting":"%s"}' '{{ .Values.helloapi.greeting }}' \
-            > /usr/share/nginx/html/greeting.json
-          sed -i 's/listen\s*80/listen 8080/g' /etc/nginx/conf.d/default.conf
+          cat > /usr/share/nginx/html/greeting.json <<'GREETEOF'
+          {"greeting":"{{ .Values.helloapi.greeting }}"}
+          GREETEOF
+          cat > /etc/nginx/conf.d/default.conf <<'NGINXEOF'
+          server {
+              listen 8080;
+              root /usr/share/nginx/html;
+              location / {
+                  try_files $uri $uri/ =404;
+              }
+          }
+          NGINXEOF
           exec nginx -g 'daemon off;'
