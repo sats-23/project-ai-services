@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "helloapi": {
+      "type": "object",
+      "properties": {
+        "greeting": {
+          "type": "string",
+          "title": "Greeting message",
+          "default": "Hello from BYOS!",
+          "description": "Text returned by the /greeting endpoint."
+        }
+      }
+    }
+  }
+}

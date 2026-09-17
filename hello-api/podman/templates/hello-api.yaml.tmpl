@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ .InstanceSlug }}--hello-api"
+  labels:
+    ai-services.io/template: "{{ .TemplateID }}"
+  annotations:
+    # Routes port 8080 inside the pod through Caddy as an API endpoint.
+    ai-services.io/routes: "8080:hello-api-{{ .InstanceSlug }}:api"
+spec:
+  containers:
+    - name: hello-api
+      image: "{{ .Values.helloapi.image }}"
+      ports:
+        - containerPort: 8080
+      # nginx default port is 80 — remap it to 8080 and inject the greeting
+      command:
+        - /bin/sh
+        - -c
+        - |
+          mkdir -p /usr/share/nginx/html
+          printf '{"greeting":"%s"}' '{{ .Values.helloapi.greeting }}' \
+            > /usr/share/nginx/html/greeting.json
+          sed -i 's/listen\s*80/listen 8080/g' /etc/nginx/conf.d/default.conf
+          exec nginx -g 'daemon off;'

@@ -1,0 +1,8 @@
+name: hello-api
+version: "1.0.0"
+podTemplateExecutions:
+  - [hello-api.yaml.tmpl]   # single layer — one template, nothing to sequence
+resources:
+  cpu: 1
+  memory: 268435456          # 256 MiB in bytes
+  storage: 1073741824        # 1 GiB in bytes

@@ -1,0 +1,6 @@
+id: hello-api
+name: "Hello API"
+description: "A minimal demo BYOS service that returns a JSON greeting on port 8080."
+type: service
+certified_by: "Custom"
+standalone: true

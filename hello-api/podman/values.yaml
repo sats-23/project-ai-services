@@ -1,0 +1,4 @@
+helloapi:
+  image: "docker.io/nginx:1.25-alpine"
+  port: ""                   # filled at runtime from the mapped host port
+  greeting: "Hello from BYOS!"
