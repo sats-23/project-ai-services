@@ -1,14 +1,4 @@
-pods:
-  - name: "{{ .AppName }}--hello-api"
-    format: "index .Ports \"8080/tcp\" 0"
-    default: ""
-    alias: HELLO_API_PORT
-
 containers:
   - name: "{{ .InstanceSlug }}--hello-api-hello-api"
     format: ".Status"
     alias: HELLO_API_STATUS
-
-hosts:
-  - fetch: HOST_IP
-    type: ip
