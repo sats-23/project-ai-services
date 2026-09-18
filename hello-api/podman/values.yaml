@@ -1,4 +1,4 @@
 helloapi:
-  image: "registry.access.redhat.com/ubi8/nginx-124:1789611115"
+  image: "localhost/ppc64le/busybox:latest"
   port: ""                   # filled at runtime from the mapped host port
   greeting: "Hello from BYOS!"

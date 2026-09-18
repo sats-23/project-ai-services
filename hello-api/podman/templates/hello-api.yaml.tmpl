@@ -5,31 +5,16 @@ metadata:
   labels:
     ai-services.io/template: "{{ .TemplateID }}"
   annotations:
-    # Caddy routes container port 8080 to the API upstream.
     ai-services.io/routes: "8080:hello-api-{{ .InstanceSlug }}:api"
 spec:
-  initContainers:
-    - name: hello-api-init
-      image: "{{ .Values.helloapi.image }}"
-      command:
-        - /bin/sh
-        - -c
-        - >-
-          echo '{"greeting":"{{ .Values.helloapi.greeting }}"}' > /usr/share/nginx/html/greeting.json
-      volumeMounts:
-        - name: html
-          mountPath: /usr/share/nginx/html
   containers:
     - name: hello-api
       image: "{{ .Values.helloapi.image }}"
       ports:
         - containerPort: 8080
-      env:
-        - name: NGINX_PORT
-          value: "8080"
-      volumeMounts:
-        - name: html
-          mountPath: /usr/share/nginx/html
-  volumes:
-    - name: html
-      emptyDir: {}
+      command:
+        - /bin/sh
+        - -c
+        - >-
+          echo '{"greeting":"{{ .Values.helloapi.greeting }}"}' > /greeting.json &&
+          exec httpd -f -p 8080 -h /
