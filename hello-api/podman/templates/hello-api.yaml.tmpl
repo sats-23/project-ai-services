@@ -17,18 +17,8 @@ spec:
       command:
         - /bin/sh
         - -c
-        - |
-          mkdir -p /usr/share/nginx/html
-          cat > /usr/share/nginx/html/greeting.json <<'GREETEOF'
-          {"greeting":"{{ .Values.helloapi.greeting }}"}
-          GREETEOF
-          cat > /etc/nginx/conf.d/default.conf <<'NGINXEOF'
-          server {
-              listen 8080;
-              root /usr/share/nginx/html;
-              location / {
-                  try_files $uri $uri/ =404;
-              }
-          }
-          NGINXEOF
+        - >-
+          mkdir -p /usr/share/nginx/html &&
+          echo '{"greeting":"{{ .Values.helloapi.greeting }}"}' > /usr/share/nginx/html/greeting.json &&
+          echo 'server { listen 8080; root /usr/share/nginx/html; location / { try_files $uri $uri/ =404; } }' > /etc/nginx/conf.d/default.conf &&
           exec nginx -g 'daemon off;'
