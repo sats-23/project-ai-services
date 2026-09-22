@@ -707,6 +707,61 @@ async def chat_completion(req: ChatCompletionRequest, credentials: Optional[HTTP
     except Exception as e:
         APIError.raise_error(ErrorCode.INTERNAL_SERVER_ERROR, repr(e))
 
+@app.post(
+    "/v1/agent/chat",
+    response_model=ChatCompletionResponse,
+    tags=["agentic-rag"],
+    summary="Agentic RAG — multi-source (VDB + SQL)",
+    description=(
+        "Agentic RAG endpoint. The model autonomously decides whether to search "
+        "the vector knowledge base, query the SQL database, or both — then "
+        "synthesises a grounded answer. Uses Granite 4.0 native tool-calling."
+    ),
+)
+@limit_concurrency
+async def agent_chat(
+    req: ChatCompletionRequest,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+) -> ChatCompletionResponse:
+    """Agentic RAG: orchestrator drives tool-call loop, then returns the answer."""
+    from chatbot.orchestrator_agent import run as orchestrator_run
+
+    api_key = credentials.credentials if credentials else None
+
+    if await is_auth_required() and not api_key:
+        APIError.raise_error(ErrorCode.AUTHENTICATION_FAILED, "API key required")
+
+    if not req.messages:
+        APIError.raise_error(ErrorCode.EMPTY_INPUT, "messages can't be empty")
+
+    current_query, previous_messages = get_conversation_context(req.messages)
+    if not current_query or not current_query.strip():
+        APIError.raise_error(ErrorCode.EMPTY_INPUT, "Query cannot be empty")
+
+    llm_model = llm_model_dict["llm_model"]
+    llm_endpoint = llm_model_dict["llm_endpoint"]
+
+    max_tokens = req.max_tokens or settings.llm.english.max_tokens
+
+    logger.info(f"[agent] query={current_query[:80]!r}")
+
+    answer = await asyncio.to_thread(
+        orchestrator_run,
+        current_query,
+        llm_endpoint,
+        llm_model,
+        max_tokens,
+        req.temperature,
+        api_key,
+        previous_messages,
+        settings.agent.max_iterations,
+    )
+
+    return ChatCompletionResponse(
+        choices=[ChatChoice(message=ChatMessage(content=answer))]
+    )
+
+
 @app.get(
     "/db-status",
     response_model=DBStatusResponse,
