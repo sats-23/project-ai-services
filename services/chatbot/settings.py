@@ -802,11 +802,28 @@ class RAGConfig(BaseSettings):
         v.system_prompt = v_stripped
         return v
 
+class AgentConfig(BaseSettings):
+    """Configuration for the Agentic RAG orchestrator."""
+
+    model_config = SettingsConfigDict(env_prefix="AGENT_")
+
+    max_iterations: int = Field(
+        default=6,
+        ge=1,
+        description="Maximum number of tool-call loop iterations before giving up.",
+    )
+    enabled: bool = Field(
+        default=True,
+        description="Enable the agentic /v1/agent/chat endpoint.",
+    )
+
+
 class Settings(BaseSettings):
     common: CommonSettings = Field(default_factory=CommonSettings)
     chatbot: RAGConfig = Field(default_factory=RAGConfig)
     llm: LLMConfig = Field(default_factory=LLMConfig)
     query_rephrasing: QueryRephrasingConfig = Field(default_factory=QueryRephrasingConfig)
+    agent: AgentConfig = Field(default_factory=AgentConfig)
 
 # Global settings instance
 settings = Settings()
