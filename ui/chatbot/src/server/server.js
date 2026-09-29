@@ -11,7 +11,7 @@ const PORT = getServerPort();
 
 app.use(json());
 
-// Proxy endpoint
+// Proxy endpoint — legacy streaming RAG
 app.post('/v1/chat/completions', async (req, res) => {
   const targetURL = getTargetURL();
   console.log(`Forwarding request to: ${targetURL}`);
@@ -41,6 +41,32 @@ app.post('/v1/chat/completions', async (req, res) => {
     res
       .status(error.response.status)
       .json({ error: 'Failed to fetch response from model API' });
+  }
+});
+
+// Proxy endpoint — Agentic RAG (non-streaming, orchestrator loop)
+app.post('/v1/agent/chat', async (req, res) => {
+  const targetURL = getTargetURL();
+  console.log(`Forwarding agentic request to: ${targetURL}`);
+  try {
+    const upstreamResponse = await axios({
+      method: 'post',
+      url: `${targetURL}/v1/agent/chat`,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(req.headers.authorization
+          ? { Authorization: req.headers.authorization }
+          : {}),
+      },
+      data: JSON.stringify(req.body),
+    });
+
+    res.status(upstreamResponse.status).json(upstreamResponse.data);
+  } catch (error) {
+    console.error('Agentic RAG Error:', error.message);
+    const status = error.response?.status || 500;
+    const detail = error.response?.data || { error: 'Failed to fetch response from agentic endpoint' };
+    res.status(status).json(detail);
   }
 });
 

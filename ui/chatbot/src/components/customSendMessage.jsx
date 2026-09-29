@@ -1,6 +1,5 @@
 import { UserType } from '@carbon/ai-chat';
 import axios from 'axios';
-import { OpenAI } from 'openai';
 import { DEFAULT_CONFIG } from '../config/chatbotConfig.js';
 
 const DEFAULT_STREAM_ERROR_MESSAGE =
@@ -23,13 +22,6 @@ async function customSendMessage(
   setConversationHistory,
 ) {
   const userInput = request.input.text;
-
-  // Create OpenAI client with the provided API key
-  const client = new OpenAI({
-    baseURL: window.location.origin + '/v1',
-    apiKey: apiKey || 'not-needed',
-    dangerouslyAllowBrowser: true, // Required for browser-side use to allow api-key
-  });
 
   try {
     const res = await axios.get('/db-status');
@@ -112,9 +104,8 @@ async function customSendMessage(
 
   const payload = {
     messages: recentMessages,
-    model: 'ibm-granite/granite-3.3-8b-instruct',
     temperature: 0.0,
-    stream: true,
+    stream: false,
   };
 
   let isCanceled = false;
@@ -127,66 +118,30 @@ async function customSendMessage(
   try {
     instance.updateIsMessageLoadingCounter('increase');
 
-    // Make the streaming request using OpenAI client with withResponse to access headers
-    const { data: stream, response } = await client.chat.completions
-      .create(payload)
-      .withResponse();
-
-    // Extract rephrased query from response headers.
-    // The server percent-encodes the value (urllib.parse.quote) so that
-    // non-Latin-1 characters (e.g. Japanese) are safe to transport in
-    // HTTP headers.  Decode it back here before use.
-    const rawRephrasedQuery = response.headers.get('x-rephrased-query');
-    const rephrasedQuery = rawRephrasedQuery
-      ? decodeURIComponent(rawRephrasedQuery)
-      : userInput;
+    // Call the agentic RAG endpoint (non-streaming — orchestrator loop runs server-side)
+    const agentResponse = await axios.post(
+      `${window.location.origin}/v1/agent/chat`,
+      payload,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(apiKey && apiKey !== 'not-needed'
+            ? { Authorization: `Bearer ${apiKey}` }
+            : {}),
+        },
+        signal: _options.signal,
+      },
+    );
 
     instance.updateIsMessageLoadingCounter('decrease');
 
-    let fullText = ''; // to accumulate final message
+    if (isCanceled) return;
 
-    for await (const chunk of stream) {
-      if (isCanceled) break;
+    const fullTextRaw =
+      agentResponse.data?.choices?.[0]?.message?.content || '';
+    const fullText = finalizeResponse(fullTextRaw);
 
-      // Check for error in chunk
-      if (chunk.error) {
-        const errorStatus = chunk.error.status || 500;
-
-        const error = new Error(DEFAULT_STREAM_ERROR_MESSAGE);
-        error.status = errorStatus;
-        error.error = chunk.error;
-
-        throw error;
-      }
-
-      const textChunk = chunk.choices[0]?.delta?.content || '';
-
-      if (textChunk) {
-        fullText += textChunk;
-
-        await instance.messaging.addMessageChunk({
-          partial_item: {
-            response_type: 'text',
-            text: escapeHtml(textChunk),
-            streaming_metadata: {
-              id: itemId,
-              cancellable: true,
-            },
-          },
-          streaming_metadata: {
-            response_id: responseId,
-          },
-          partial_response: {
-            message_options: {
-              response_user_profile: ResponseUserProfile,
-            },
-          },
-        });
-      }
-    }
-
-    fullText = finalizeResponse(fullText);
-    // Complete item chunk (used if we want to replace bubble content at end)
+    // The agent endpoint is non-streaming, so close the streaming bubble immediately
     await instance.messaging.addMessageChunk({
       complete_item: {
         response_type: 'text',
@@ -205,6 +160,10 @@ async function customSendMessage(
         },
       },
     });
+
+    // Agent already searched VDB internally, but we still fetch reference docs
+    // so the UI can show the "Get reference documents" button for the user
+    const rephrasedQuery = userInput;
 
     // Now fetch reference docs using the rephrased query (or original if not rephrased)
     let docs = [];
