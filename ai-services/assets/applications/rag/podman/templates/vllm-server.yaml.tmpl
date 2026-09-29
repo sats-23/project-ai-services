@@ -45,7 +45,10 @@ spec:
           -tp ${AIU_WORLD_SIZE} \
           --max-model-len ${MAX_MODEL_LEN} \
           --max-num-seqs ${MAX_BATCH_SIZE} \
-          --served-model-name {{ .Values.instruct.model.name }} --port 8000
+          --served-model-name {{ .Values.instruct.model.name }} \
+          --enable-auto-tool-choice \
+          --tool-call-parser granite4 \
+          --port 8000 
       livenessProbe:
         httpGet:
           path: /health
