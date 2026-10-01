@@ -1,0 +1,518 @@
+
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Forecast Service — POC Architecture</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #1f2328;
+    background: #ffffff;
+    padding: 40px 24px 60px;
+  }
+  .page { max-width: 760px; margin: 0 auto; }
+
+  /* ── Header ── */
+  .header { margin-bottom: 32px; }
+  .header .badge {
+    display: inline-block;
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fcd34d;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    padding: 2px 8px;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+  }
+  .header h1 { font-size: 26px; font-weight: 600; margin-bottom: 6px; }
+  .header p { color: #57606a; font-size: 14px; max-width: 600px; }
+
+  /* ── Section titles ── */
+  h2 {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #57606a;
+    margin-bottom: 14px;
+  }
+  .section { margin-bottom: 36px; }
+
+  /* ── Flow diagram ── */
+  .flow {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0;
+    margin-bottom: 8px;
+  }
+  .flow-node {
+    background: #f7f8fa;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .flow-node.accent { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+  .flow-node.dark   { background: #1f2328; color: #ffffff; border-color: #1f2328; }
+  .flow-node.green  { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
+  .flow-arrow {
+    font-size: 16px;
+    color: #9ca3af;
+    padding: 0 8px;
+    flex-shrink: 0;
+  }
+
+  /* ── Two-column APIs ── */
+  .api-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .api-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 14px 16px;
+    background: #f7f8fa;
+  }
+  .api-card .method {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 2px 7px;
+    border-radius: 3px;
+    margin-bottom: 6px;
+  }
+  .method.post { background: #dbeafe; color: #1d4ed8; }
+  .method.get  { background: #d1fae5; color: #065f46; }
+  .api-card .path {
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 12px;
+    font-weight: 600;
+    color: #1f2328;
+    margin-bottom: 4px;
+  }
+  .api-card p { font-size: 12px; color: #57606a; margin-bottom: 6px; }
+  .api-card .payload {
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 11px;
+    color: #57606a;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    padding: 6px 8px;
+    line-height: 1.7;
+    white-space: pre;
+  }
+
+  /* ── Component table ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  th {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #57606a;
+    padding: 6px 10px;
+    border-bottom: 2px solid #e5e7eb;
+    background: #f7f8fa;
+  }
+  td {
+    padding: 9px 10px;
+    border-bottom: 1px solid #f0f1f3;
+    vertical-align: top;
+    color: #1f2328;
+  }
+  tr:last-child td { border-bottom: none; }
+  td code {
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 11px;
+    background: #f0f1f3;
+    border-radius: 3px;
+    padding: 1px 5px;
+  }
+  .tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 3px;
+    padding: 1px 6px;
+    margin-right: 3px;
+  }
+  .tag.new     { background: #ede9fe; color: #5b21b6; }
+  .tag.reuse   { background: #f0fdf4; color: #166534; }
+  .tag.extend  { background: #fff7ed; color: #9a3412; }
+
+  /* ── SLA / callout boxes ── */
+  .callout-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .callout {
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 12px 14px;
+    background: #f7f8fa;
+  }
+  .callout .label { font-size: 11px; color: #57606a; margin-bottom: 2px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+  .callout .value { font-size: 20px; font-weight: 700; color: #1f2328; }
+  .callout .note  { font-size: 11px; color: #57606a; margin-top: 2px; }
+
+  /* ── Dependency list ── */
+  .dep-list { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; }
+  .dep-list li {
+    background: #f7f8fa;
+    border: 1px solid #e5e7eb;
+    border-radius: 5px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .dep-list li span { color: #57606a; font-weight: 400; margin-left: 4px; }
+
+  /* ── Phase timeline ── */
+  .phases { display: flex; flex-direction: column; gap: 10px; }
+  .phase-row { display: flex; align-items: flex-start; gap: 12px; }
+  .phase-num {
+    flex-shrink: 0;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: #1f2328;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .phase-body { flex: 1; }
+  .phase-body strong { font-size: 13px; }
+  .phase-body p { font-size: 12px; color: #57606a; margin-top: 1px; }
+
+  hr { border: none; border-top: 1px solid #e5e7eb; margin: 8px 0 28px; }
+
+  /* ── Footer ── */
+  .footer {
+    text-align: center;
+    font-size: 12px;
+    color: #9ca3af;
+    padding-top: 20px;
+    border-top: 1px solid #e5e7eb;
+    margin-top: 48px;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  
+  <div class="header">
+    <div class="badge">New · 3Q Stretch</div>
+    <h1>Forecast Service — POC Architecture</h1>
+    <p>Predicts future trends and outcomes from historical data, enabling better planning, resource allocation, and business decision-making. Accepts a CSV for custom model training; exposes a prediction endpoint once trained.</p>
+  </div>
+
+  
+  <div class="section">
+    <h2>End-to-End Flow</h2>
+    <div class="flow">
+      <div class="flow-node">Client</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node accent">POST /v1/forecast/train<br /><span style="font-size:11px;font-weight:400">CSV + column config</span></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node">Training Job<br /><span style="font-size:11px;font-weight:400">async / background</span></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node green">Model persisted<br /><span style="font-size:11px;font-weight:400">job_id → artefact</span></div>
+    </div>
+    <div class="flow" style="margin-top:10px">
+      <div class="flow-node">Client</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node accent">POST /v1/forecast/predict<br /><span style="font-size:11px;font-weight:400">job_id + input values</span></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node">Load model<br /><span style="font-size:11px;font-weight:400">from artefact store</span></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node green">Predictions JSON<br /><span style="font-size:11px;font-weight:400">per output column</span></div>
+    </div>
+  </div>
+
+  
+  <div class="section">
+    <h2>API Surface</h2>
+    <div class="api-grid">
+
+      <div class="api-card">
+        <div class="method post">POST</div>
+        <div class="path">/v1/forecast/train</div>
+        <p>Upload a CSV and declare which columns are inputs and which to predict. Returns a <code>job_id</code> immediately; training runs async.</p>
+        <div class="payload">Content-Type: multipart/form-data
+file:         &lt;data.csv&gt;
+input_cols:   ["date","region","spend"]
+output_cols:  ["revenue","demand"]
+version:      "1.0.0"          # optional</div>
+      </div>
+
+      <div class="api-card">
+        <div class="method get">GET</div>
+        <div class="path">/v1/forecast/train/{job_id}</div>
+        <p>Poll training status. Mirrors the existing summarize job-status pattern.</p>
+        <div class="payload">Response:
+{
+  "job_id":   "abc-123",
+  "status":   "completed",
+  "model_version": "1.0.0",
+  "trained_at": "2025-…"
+}</div>
+      </div>
+
+      <div class="api-card">
+        <div class="method post">POST</div>
+        <div class="path">/v1/forecast/predict</div>
+        <p>Run inference against a trained model. Returns a prediction per output column for each input row.</p>
+        <div class="payload">Content-Type: application/json
+{
+  "job_id": "abc-123",
+  "inputs": [
+    {"date":"2025-10","region":"US","spend":5000},
+    {"date":"2025-11","region":"US","spend":5200}
+  ]
+}</div>
+      </div>
+
+      <div class="api-card">
+        <div class="method get">GET</div>
+        <div class="path">/v1/forecast/train</div>
+        <p>List all training jobs with pagination. Mirrors <code>/v1/summarize/jobs</code> listing pattern.</p>
+        <div class="payload">Response:
+{
+  "pagination": { "total":12, … },
+  "data": [
+    { "job_id":"abc-123",
+      "status":"completed", … }
+  ]
+}</div>
+      </div>
+
+    </div>
+  </div>
+
+  
+  <div class="section">
+    <h2>Components Required</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Component</th>
+          <th>File / Location</th>
+          <th>Status</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>FastAPI app entrypoint</strong></td>
+          <td><code>services/forecast/app.py</code></td>
+          <td><span class="tag new">New</span></td>
+          <td>Lifespan, middleware, route registration — mirrors <code>similarity/app.py</code></td>
+        </tr>
+        <tr>
+          <td><strong>Pydantic models</strong></td>
+          <td><code>services/forecast/models.py</code></td>
+          <td><span class="tag new">New</span></td>
+          <td><code>TrainRequest</code>, <code>PredictRequest</code>, <code>PredictResponse</code>, <code>JobStatus</code> enum</td>
+        </tr>
+        <tr>
+          <td><strong>Service settings</strong></td>
+          <td><code>services/forecast/settings.py</code></td>
+          <td><span class="tag new">New</span></td>
+          <td>Model artefact dir, max CSV rows, algorithm choice (e.g. prophet / sklearn)</td>
+        </tr>
+        <tr>
+          <td><strong>Forecast utilities</strong></td>
+          <td><code>services/forecast/forecast_utils.py</code></td>
+          <td><span class="tag new">New</span></td>
+          <td>CSV parsing, feature engineering, model train/save/load, predict helpers</td>
+        </tr>
+        <tr>
+          <td><strong>SQLAlchemy ORM model</strong></td>
+          <td><code>services/forecast/db/models.py</code></td>
+          <td><span class="tag new">New</span></td>
+          <td><code>ForecastJob</code> table — status, input/output col lists, artefact path, version</td>
+        </tr>
+        <tr>
+          <td><strong>DB connection &amp; manager</strong></td>
+          <td><code>services/forecast/db/</code></td>
+          <td><span class="tag reuse">Reuse pattern</span></td>
+          <td>Copy <code>summarize/db/connection.py</code> + <code>manager.py</code>; point to forecast schema</td>
+        </tr>
+        <tr>
+          <td><strong>Background job runner</strong></td>
+          <td><code>services/forecast/job_utils.py</code></td>
+          <td><span class="tag extend">Extend pattern</span></td>
+          <td>Adapt <code>summarize/job_utils.py</code>; swap LLM call for sklearn/prophet <code>.fit()</code></td>
+        </tr>
+        <tr>
+          <td><strong>Model artefact store</strong></td>
+          <td>Filesystem / PVC mount</td>
+          <td><span class="tag new">New</span></td>
+          <td>Persist serialised model (<code>joblib</code>) keyed by <code>job_id</code>; path in DB</td>
+        </tr>
+        <tr>
+          <td><strong>DB migration scripts</strong></td>
+          <td><code>services/forecast/db/scripts/</code></td>
+          <td><span class="tag new">New</span></td>
+          <td>Alembic or plain SQL — <code>forecast_jobs</code> table, index on <code>status</code></td>
+        </tr>
+        <tr>
+          <td><strong>Containerfile</strong></td>
+          <td><code>services/forecast/Containerfile</code></td>
+          <td><span class="tag extend">Extend pattern</span></td>
+          <td>Add <code>scikit-learn</code>, <code>prophet</code>, <code>pandas</code>, <code>joblib</code> to base image</td>
+        </tr>
+        <tr>
+          <td><strong>Common error / retry utils</strong></td>
+          <td><code>services/common/</code></td>
+          <td><span class="tag reuse">Reuse</span></td>
+          <td><code>error_utils.py</code>, <code>retry_utils.py</code>, <code>misc_utils.py</code> — no changes needed</td>
+        </tr>
+        <tr>
+          <td><strong>UI service card</strong></td>
+          <td><code>ui/chatbot/src/components/</code></td>
+          <td><span class="tag new">New</span></td>
+          <td>Carbon tile — CSV upload, column picker, predict form, results chart</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  
+  <div class="section">
+    <h2>Target SLAs (IBM sizing guidelines)</h2>
+    <div class="callout-grid">
+      <div class="callout">
+        <div class="label">Training latency</div>
+        <div class="value">&lt; 1 h</div>
+        <div class="note">For an N×M dataset on recommended sizing</div>
+      </div>
+      <div class="callout">
+        <div class="label">Inference throughput</div>
+        <div class="value">&gt; X / hr</div>
+        <div class="note">Concurrent predictions per hour (TBD)</div>
+      </div>
+      <div class="callout">
+        <div class="label">Inference latency</div>
+        <div class="value">&lt; Xs</div>
+        <div class="note">Per single prediction call (TBD)</div>
+      </div>
+    </div>
+  </div>
+
+  
+  <div class="section">
+    <h2>External Dependencies</h2>
+    <ul class="dep-list">
+      <li>scikit-learn <span>model training + serialisation</span></li>
+      <li>Prophet / statsmodels <span>time-series forecasting</span></li>
+      <li>pandas <span>CSV parsing &amp; feature prep</span></li>
+      <li>joblib <span>model artefact serialisation</span></li>
+      <li>PostgreSQL <span>job metadata store (shared with summarize)</span></li>
+      <li>PVC / object store <span>persisted model artefacts</span></li>
+      <li>IBM Db2 for i <span>optional data source for training (Db2 connection)</span></li>
+      <li>OpenAI inferencing endpoint <span>optional — for LLM-assisted feature suggestions</span></li>
+    </ul>
+  </div>
+
+  
+  <div class="section">
+    <h2>Rough Implementation Phases</h2>
+    <div class="phases">
+      <div class="phase-row">
+        <div class="phase-num">1</div>
+        <div class="phase-body">
+          <strong>Skeleton service</strong>
+          <p>Scaffold <code>services/forecast/</code> directory, <code>app.py</code>, <code>settings.py</code>, <code>Containerfile</code>. Wire up health endpoint and Swagger UI. Validate it builds and runs.</p>
+        </div>
+      </div>
+      <div class="phase-row">
+        <div class="phase-num">2</div>
+        <div class="phase-body">
+          <strong>Data layer</strong>
+          <p>Define <code>ForecastJob</code> ORM model. Write migration scripts. Adapt DB connection pool from <code>summarize/db/</code>.</p>
+        </div>
+      </div>
+      <div class="phase-row">
+        <div class="phase-num">3</div>
+        <div class="phase-body">
+          <strong>Training pipeline</strong>
+          <p>Implement <code>POST /v1/forecast/train</code>: accept CSV upload, validate column names, kick off background <code>asyncio.to_thread</code> job, persist trained model with <code>joblib.dump</code>, update job status in DB.</p>
+        </div>
+      </div>
+      <div class="phase-row">
+        <div class="phase-num">4</div>
+        <div class="phase-body">
+          <strong>Inference endpoint</strong>
+          <p>Implement <code>POST /v1/forecast/predict</code>: load model from artefact store, run <code>model.predict()</code>, return predictions per output column.</p>
+        </div>
+      </div>
+      <div class="phase-row">
+        <div class="phase-num">5</div>
+        <div class="phase-body">
+          <strong>Job management endpoints</strong>
+          <p>Status polling (<code>GET /train/{job_id}</code>), list jobs (<code>GET /train</code>), delete job + artefact (<code>DELETE /train/{job_id}</code>).</p>
+        </div>
+      </div>
+      <div class="phase-row">
+        <div class="phase-num">6</div>
+        <div class="phase-body">
+          <strong>UI card</strong>
+          <p>Carbon tile: CSV drag-and-drop, multi-select column picker, train trigger, status polling badge, predict form with results table/chart.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  
+  <div class="section">
+    <h2>Key Open Decisions</h2>
+    <table>
+      <thead>
+        <tr><th>Decision</th><th>Options</th><th>Recommendation</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>ML algorithm</strong></td>
+          <td>scikit-learn (LinearRegression, RandomForest), Prophet, statsmodels ARIMA</td>
+          <td>Start with sklearn RandomForestRegressor — no time-series requirement, easy to generalise across column types. Add Prophet as opt-in for date-indexed data.</td>
+        </tr>
+        <tr>
+          <td><strong>Artefact storage</strong></td>
+          <td>Local filesystem PVC, MinIO/S3, PostgreSQL BYTEA</td>
+          <td>Filesystem PVC (same pattern as summarize <code>cache_dir</code>); migrate to object store when multi-node needed.</td>
+        </tr>
+        <tr>
+          <td><strong>Training execution</strong></td>
+          <td><code>asyncio.to_thread</code>, Celery worker, separate Pod/Job</td>
+          <td><code>asyncio.to_thread</code> for POC (matches summarize pattern); Kubernetes Job for production scale.</td>
+        </tr>
+        <tr>
+          <td><strong>DB2 live training</strong></td>
+          <td>Accept CSV only vs. DB connection string + SQL query</td>
+          <td>CSV-only for POC; DB2 connector is a follow-on feature once core pipeline is proven.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footer">Made with IBM Bob</div>
+</div>
+</body>
+</html>
