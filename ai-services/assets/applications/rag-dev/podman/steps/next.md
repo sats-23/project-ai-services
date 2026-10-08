@@ -4,4 +4,6 @@
 
 - Use the Similarity API at http://{{ .HOST_IP }}:{{ .SIMILARITY_API_PORT }} to perform vector similarity search via programmatic access.
 
+- Process invoices using the web interface at http://{{ .HOST_IP }}:{{ .INVOICE_PROCESSING_UI_PORT }}.
+
 - Run "ai-services application info {{ .AppName }} --runtime podman" to view service endpoints.

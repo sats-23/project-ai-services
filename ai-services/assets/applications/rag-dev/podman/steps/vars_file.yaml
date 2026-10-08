@@ -39,6 +39,16 @@ pods:
     default: ""
     alias: TRANSLATE_API_PORT
 
+  - name: "{{ .AppName }}--invoice-processing"
+    format: "index .Ports \"4100/tcp\" 0"
+    default: ""
+    alias: INVOICE_PROCESSING_API_PORT
+
+  - name: "{{ .AppName }}--invoice-processing"
+    format: "index .Ports \"4101/tcp\" 0"
+    default: ""
+    alias: INVOICE_PROCESSING_UI_PORT
+
 containers:
   - name: "{{ .AppName }}--chat-bot-ui"
     format: ".Status"
@@ -71,6 +81,14 @@ containers:
   - name: "{{ .AppName }}--translate-api-translate-api"
     format: ".Status"
     alias: TRANSLATE_API_STATUS
+
+  - name: "{{ .AppName }}--invoice-processing-ui"
+    format: ".Status"
+    alias: INVOICE_PROCESSING_UI_STATUS
+
+  - name: "{{ .AppName }}--invoice-processing-backend-server"
+    format: ".Status"
+    alias: INVOICE_PROCESSING_API_STATUS
 
 hosts:
   - fetch: HOST_IP

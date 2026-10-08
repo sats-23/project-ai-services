@@ -75,3 +75,23 @@ Day N:
 - Translate API is unavailable to use. Please make sure '{{ .AppName }}--translate-api' pod is running.
 {{- end }}
 {{- end }}
+
+{{- if ne .INVOICE_PROCESSING_UI_PORT "" }}
+{{- if eq .INVOICE_PROCESSING_UI_STATUS "running" }}
+
+- Process invoices using the Invoice Processing UI: http://{{ .HOST_IP }}:{{ .INVOICE_PROCESSING_UI_PORT }}.
+{{- else }}
+
+- Invoice Processing UI is unavailable to use. Please make sure '{{ .AppName }}--invoice-processing' pod is running.
+{{- end }}
+{{- end }}
+
+{{- if ne .INVOICE_PROCESSING_API_PORT "" }}
+{{- if eq .INVOICE_PROCESSING_API_STATUS "running" }}
+
+- Invoice Processing API is available to use at http://{{ .HOST_IP }}:{{ .INVOICE_PROCESSING_API_PORT }}. Use this endpoint for programmatic access and direct API integration.
+{{- else }}
+
+- Invoice Processing API is unavailable to use. Please make sure '{{ .AppName }}--invoice-processing' pod is running.
+{{- end }}
+{{- end }}
