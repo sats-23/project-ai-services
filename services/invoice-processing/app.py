@@ -5,7 +5,6 @@ Invoice Processing Service — FastAPI application.
 from contextlib import asynccontextmanager
 import uuid
 
-import requests
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.openapi.docs import get_swagger_ui_html
@@ -25,7 +24,6 @@ from db.connection import (
     engine,
 )
 from db.models import Base
-from schema import INVOICE_SCHEMA_PAYLOAD
 from settings import settings
 
 set_log_level(settings.common.app.log_level)
@@ -62,37 +60,6 @@ def _initialize_database() -> None:
         raise RuntimeError(f"Database schema initialization failed: {exc}") from exc
 
 
-def _register_invoice_schema() -> None:
-    """Register invoice schema with extract service at startup.
-
-    If extract service URL is configured, attempts registration:
-    - 201: Schema created
-    - 409: Schema already exists (idempotent)
-    - Any other status or network error: raises RuntimeError
-    """
-    if not settings.invoice.extract_url:
-        logger.warning("EXTRACT_URL not configured — skipping schema registration")
-        return
-
-    url = f"{settings.invoice.extract_url.rstrip('/')}/v1/schemas"
-    logger.info(f"Registering invoice schema with extract service at {url}...")
-
-    try:
-        resp = requests.post(url, json=INVOICE_SCHEMA_PAYLOAD, timeout=10.0)
-        if resp.status_code == 201:
-            logger.info("Successfully registered invoice extraction schema")
-        elif resp.status_code == 409:
-            logger.info("Invoice extraction schema already registered (idempotent)")
-        else:
-            error_msg = f"Failed to register invoice schema with extract service: HTTP {resp.status_code} - {resp.text}"
-            logger.error(error_msg)
-            raise RuntimeError(error_msg)
-    except requests.RequestException as exc:
-        error_msg = f"Network error connecting to extract service schema endpoint: {exc}"
-        logger.error(error_msg)
-        raise RuntimeError(error_msg) from exc
-
-
 def recover_zombie_jobs() -> int:
     """Boilerplate stub for zombie job recovery."""
     logger.debug("Zombie job recovery scan stub")
@@ -106,7 +73,6 @@ async def lifespan(app: FastAPI):
     logger.info("Application starting up...")
     _initialize_database()
     ensure_directories()
-    _register_invoice_schema()
     recover_zombie_jobs()
 
     yield

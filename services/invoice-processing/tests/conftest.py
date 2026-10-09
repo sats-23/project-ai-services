@@ -27,7 +27,6 @@ def mock_db_connection():
 
 @pytest.fixture
 def client(mock_db_connection):
-    with patch("app._register_invoice_schema"):
-        from app import app
-        with TestClient(app) as test_client:
-            yield test_client
+    from app import app
+    with TestClient(app) as test_client:
+        yield test_client

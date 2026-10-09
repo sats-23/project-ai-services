@@ -12,6 +12,7 @@ from models import (
     PaginatedResponse,
     SubmitInvoiceResponse,
 )
+from schema_registration import ensure_invoice_schema_registered
 
 logger = get_logger("api.v1.invoices")
 
@@ -28,6 +29,8 @@ async def submit_invoice(
     file: UploadFile = File(..., description="Invoice file (PDF or image)"),
 ):
     """Submit an invoice file for async processing."""
+    # Lazily register the extraction schema with the extract service on first submission.
+    await ensure_invoice_schema_registered()
     raise HTTPException(
         status_code=status.HTTP_501_NOT_IMPLEMENTED,
         detail="Invoice submission endpoint is not implemented in boilerplate scaffold.",
