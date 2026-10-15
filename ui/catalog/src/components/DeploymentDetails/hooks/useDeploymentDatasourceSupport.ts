@@ -25,6 +25,8 @@ export function useDeploymentDatasourceSupport(
   catalogIds: string[] | undefined,
 ): DeploymentDatasourceSupportResult {
   // Architecture deployments pass their architecture ID; services pass none.
+  const isInvoiceProcessing =
+    architectureId === INVOICE_PROCESSING_CONFIG.architectureId;
   const isDA = !!architectureId;
   const selectedArchitectureId = architectureId;
 
@@ -43,6 +45,8 @@ export function useDeploymentDatasourceSupport(
   const fetchedKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (isInvoiceProcessing) return;
+
     let cancelled = false;
     const set = (v: boolean) => {
       if (!cancelled) setAcceptsDatasource(v);
@@ -53,12 +57,6 @@ export function useDeploymentDatasourceSupport(
 
     if (isDA) {
       if (!selectedArchitectureId) {
-        set(false);
-        return;
-      }
-
-      // Data sources are not applicable to invoice processing.
-      if (selectedArchitectureId === INVOICE_PROCESSING_CONFIG.architectureId) {
         set(false);
         return;
       }
@@ -136,10 +134,10 @@ export function useDeploymentDatasourceSupport(
       // Reset the in-flight guard
       fetchedKeyRef.current = null;
     };
-  }, [isDA, selectedArchitectureId, catalogIds]);
+  }, [isInvoiceProcessing, isDA, selectedArchitectureId, catalogIds]);
 
   return {
-    acceptsDatasource,
+    acceptsDatasource: isInvoiceProcessing ? false : acceptsDatasource,
     error,
     clearError: () => setError(null),
   };
