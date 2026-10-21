@@ -1,4 +1,3 @@
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Tuple
 
 from cohere import ClientV2
@@ -11,51 +10,27 @@ logger = get_logger("reranker")
 
 
 @retry_on_transient_error(max_retries=3, initial_delay=1.0, backoff_multiplier=2.0)
-def rerank_helper(co2_client: ClientV2, query: str, document: dict, model: str) -> Tuple[dict, float]:
-    """
-    Rerank a single document with respect to the query.
-    Returns a (document, score) tuple.
-
-    Includes retry logic for transient errors like connection issues and 5xx server errors.
-    """
-    page_content = document.get("page_content", "")
-    if not page_content:
-        logger.warning("Document has no page_content, assigning score 0.0")
-        return document, 0.0
-
-    result = co2_client.rerank(
-        model=model,
-        query=query,
-        documents=[page_content],
-        max_tokens_per_doc=512,
-        request_options=RequestOptions(timeout_in_seconds=60),
-    )
-    score = result.results[0].relevance_score
-    return document, score
-
-
-def rerank_documents(query: str, documents: List[dict], model: str, endpoint: str, max_workers: int = 8) -> List[Tuple[dict, float]]:
+def rerank_documents(query: str, documents: List[dict], model: str, endpoint: str) -> List[Tuple[dict, float]]:
     """
     Rerank documents for a given query using vLLM-compatible Cohere API.
+
+    Sends all documents in a single batch request to the reranker, which is more
+    efficient than one-doc-at-a-time as it reduces HTTP round-trips from N to 1.
 
     Returns:
         List of (document, score) sorted by descending score.
     """
     co2 = ClientV2(api_key="sk-fake-key", base_url=endpoint)
-    reranked: List[Tuple[dict, float]] = []
 
-    with ThreadPoolExecutor(max_workers=max(1, min(max_workers, len(documents)))) as executor:
-        futures = {
-            executor.submit(rerank_helper, co2, query, doc, model): doc
-            for doc in documents
-        }
+    page_contents = [doc.get("page_content", "") for doc in documents]
 
-        for future in as_completed(futures):
-            doc = futures[future]
-            try:
-                reranked.append(future.result())
-            except Exception as e:
-                logger.error(f"Thread error: {e}")
-                reranked.append((doc, 0.0))
+    result = co2.rerank(
+        model=model,
+        query=query,
+        documents=page_contents,
+        max_tokens_per_doc=512,
+        request_options=RequestOptions(timeout_in_seconds=60),
+    )
 
-    return sorted(reranked, key=lambda x: x[1], reverse=True)
+    scored = [(documents[r.index], r.relevance_score) for r in result.results]
+    return sorted(scored, key=lambda x: x[1], reverse=True)
