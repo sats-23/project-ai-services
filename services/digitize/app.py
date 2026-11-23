@@ -36,6 +36,8 @@ set_log_level(settings.common.app.log_level)
 
 import asyncio
 
+from digitize.metrics import metrics_middleware, render_metrics
+
 from digitize.db.connection import check_db_connection, close_db_connections
 import digitize.utils.jobs as dg_util
 from digitize.utils.recovery import recover_zombie_jobs, recover_connector_sync_state, recover_conversion_tasks
@@ -234,7 +236,7 @@ async def _connector_scheduler_lifespan():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifespan events (startup and shutdown)."""
-    filtered_paths = ["/health", "/v1/jobs"]
+    filtered_paths = ["/health", "/v1/jobs", "/metrics"]
     configure_uvicorn_logging(settings.common.app.log_level, filtered_paths)
     logger.info("Application starting up...")
 
@@ -333,6 +335,9 @@ async def add_request_id(request: Request, call_next):
     return response
 
 
+app.middleware("http")(metrics_middleware)
+
+
 # ------------------------------------------------------------------ #
 # Built-in routes                                                     #
 # ------------------------------------------------------------------ #
@@ -361,6 +366,12 @@ async def health_check():
         dict: A dictionary indicating the service is running and healthy.
     """
     return {"status": "ok"}
+
+
+@app.get("/metrics", include_in_schema=False)
+def metrics():
+    """Prometheus scrape endpoint (sync handler: the DB queries run in the threadpool)."""
+    return render_metrics()
 
 
 # ------------------------------------------------------------------ #

@@ -8,6 +8,7 @@ paramiko==5.0.0
 apscheduler[sqlalchemy]==3.11.3
 pdfplumber==0.11.9
 RapidFuzz==3.14.6
+prometheus-client==0.26.0
 
 # Docling Packages
 accelerate==1.15.0

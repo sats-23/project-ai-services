@@ -38,6 +38,7 @@ pdfplumber
 pdfminer.six
 pypdfium2
 rapidfuzz
+prometheus-client
 python-multipart
 psycopg2-binary
 SQLAlchemy==2.0.49

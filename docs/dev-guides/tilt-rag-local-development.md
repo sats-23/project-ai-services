@@ -20,6 +20,7 @@ The RAG images are built for `linux/ppc64le`, so they cannot run on Apple Silico
 | `rag-digitize-db`, `rag-digitize-db-init` | A dedicated PostgreSQL in Podman (port 5433) and the digitize schema. |
 | `rag-digitize` | The digitize API (PDF/DOCX ingestion into OpenSearch), run with `uvicorn --reload`. |
 | `rag-digitize-ui` | The digitize UI via Vite (`ui/digitize`), proxying `/v1` to the API. |
+| `rag-prometheus`, `rag-grafana` | Prometheus (port 9090) scrapes the digitize API's `/metrics`; Grafana (port 3030) shows the "Digitize service" dashboard. See [Digitize monitoring](#digitize-monitoring). |
 | `rag-ingest` | Manual trigger. Indexes `.txt`/`.md` files into OpenSearch (quick alternative to digitize). |
 
 ### Model server
@@ -31,6 +32,27 @@ The RAG images are built for `linux/ppc64le`, so they cannot run on Apple Silico
 | `/rerank` | `BAAI/bge-reranker-v2-m3` (CrossEncoder), Cohere-compatible `/v2/rerank`. |
 
 The embedding and reranker models are the same ones the production templates use. They download from the Hugging Face Hub on first start (about 3 GB).
+
+## Digitize monitoring
+
+Open http://localhost:3030/d/digitize-service (linked from `quick-links` and `rag-grafana`). No login; anonymous access is enabled as Admin, so this is for local development only.
+
+The digitize API exposes Prometheus metrics at `/metrics` ([`services/digitize/metrics.py`](../../services/digitize/metrics.py)); nothing in the pipeline is instrumented, the gauges are computed at scrape time. The dashboard ([`hack/tilt/monitoring/grafana/dashboards/digitize.json`](../../hack/tilt/monitoring/grafana/dashboards/digitize.json)) has 20 panels:
+
+| Row | Panels |
+|-----|--------|
+| Service health | Scrape target up, DB metrics ok, child processes, oldest queued task wait, longest running task, avg conversion time (15 min) |
+| CPU, memory, threads | CPU %, memory RSS, threads and open file descriptors, each split into `main` (the API) and `workers` (Docling conversion processes); host CPU/memory; DB connection pool (size / checked out / overflow) |
+| Conversion pipeline | Semaphore slots used vs capacity, tasks by status (pending / queued / running), pages in flight |
+| Jobs and documents | Jobs by status, documents by status |
+| HTTP API | Request rate, p95 latency and 5xx rate per route |
+
+Notes:
+
+- The Docling workers are child processes, so the `workers` series are zero when idle and spike during a conversion. `Child processes` reads 1 when idle (the multiprocessing resource tracker).
+- The task, job and document panels query PostgreSQL on every scrape (a few `GROUP BY` queries). If the DB is down the scrape still works and `DB metrics ok` turns to DOWN.
+- The dashboard is provisioned read-write. Edit it in Grafana, then use *Export > Save to file* and replace the JSON in the repo to keep the changes.
+- `/metrics` is not in the OpenAPI schema and is excluded from the uvicorn access log.
 
 ## Prerequisites
 
@@ -81,6 +103,8 @@ Pass any option after `--`, for example `tilt up -f Tiltfile.rag -- --rag_ui_por
 | `rag_chatbot_port` / `rag_similarity_port` / `rag_ui_port` | `5050` / `7070` / `3000` |
 | `opensearch_image` / `opensearch_port` / `opensearch_password` | `opensearchproject/opensearch:3.2.0` / `9200` / `AiServices@12345` |
 | `digitize_port` / `digitize_ui_port` | `4000` / `4001` |
+| `prometheus_image` / `prometheus_port` | `prom/prometheus:v3.5.0` / `9090` |
+| `grafana_image` / `grafana_port` | `grafana/grafana:12.1.0` / `3030` |
 | `digitize_db_image` / `digitize_db_port` / `digitize_db_password` | `postgres:16-alpine` / `5433` / `Aiservicesdb@1234` |
 | `rag_docs_dir` | `hack/tilt/sample-docs` |
 | `python_bin` | `python3` |

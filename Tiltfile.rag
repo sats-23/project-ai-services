@@ -17,6 +17,7 @@
 #   - rag-digitize-db / -db-init   : dedicated PostgreSQL (Podman, port 5433) + schema for the digitize service
 #   - rag-digitize                 : the digitize API (PDF/DOCX ingestion into OpenSearch), run from source
 #   - rag-digitize-ui              : the digitize UI via Vite
+#   - rag-prometheus / rag-grafana : Prometheus (scrapes rag-digitize /metrics) + the "Digitize service" Grafana dashboard
 #   - rag-ingest                   : manual trigger, indexes .txt/.md files (quick alternative to digitize)
 #
 # Usage (LLM provider = ollama, the default):
@@ -55,6 +56,10 @@ config.define_string("rag_similarity_port", args=False)
 config.define_string("rag_ui_port", args=False)
 config.define_string("digitize_port", args=False)
 config.define_string("digitize_ui_port", args=False)
+config.define_string("prometheus_image", args=False)
+config.define_string("prometheus_port", args=False)
+config.define_string("grafana_image", args=False)
+config.define_string("grafana_port", args=False)
 config.define_string("digitize_db_image", args=False)
 config.define_string("digitize_db_port", args=False)
 config.define_string("digitize_db_password", args=False)
@@ -72,7 +77,7 @@ cfg = config.parse()
 # The Python venv (hack/tilt/.venv) is kept on purpose: it is large and slow to recreate.
 if config.tilt_subcommand == "down":
     local(
-        "podman rm -f rag-opensearch rag-digitize-db >/dev/null 2>&1 || true; "
+        "podman rm -f rag-opensearch rag-digitize-db rag-prometheus rag-grafana >/dev/null 2>&1 || true; "
         + "podman volume rm -f rag-opensearch-data rag-digitize-db-data >/dev/null 2>&1 || true; "
         + "rm -rf hack/tilt/.data",
         quiet=True,
@@ -109,6 +114,10 @@ digitize_db_img = str(cfg.get("digitize_db_image", "docker.io/library/postgres:1
 digitize_db_port = int(cfg.get("digitize_db_port", 5433))  # not 5432: the catalog Tiltfile uses it
 # Local development default only (matches assets/services/digitize/podman/values.yaml).
 digitize_db_pass = str(cfg.get("digitize_db_password", "Aiservicesdb@1234"))
+prometheus_img = str(cfg.get("prometheus_image", "docker.io/prom/prometheus:v3.5.0"))
+prometheus_port = int(cfg.get("prometheus_port", 9090))
+grafana_img = str(cfg.get("grafana_image", "docker.io/grafana/grafana:12.1.0"))
+grafana_port = int(cfg.get("grafana_port", 3030))  # not 3000: the chatbot UI uses it
 
 if llm_provider == "watsonx" and not (watsonx_url and watsonx_project_id and watsonx_api_key):
     warn("llm_provider=watsonx: set WATSONX_URL, WATSONX_PROJECT_ID (or --watsonx_url/--watsonx_project_id) " +
@@ -162,9 +171,10 @@ local_resource(
         echo "Similarity API  : http://localhost:{sim}"
         echo "Digitize UI     : http://localhost:{dui}"
         echo "Digitize API    : http://localhost:{dapi}"
+        echo "Digitize dashboard: http://localhost:{graf}/d/digitize-service"
         echo "Ingest sample docs: trigger the 'rag-ingest' resource"
     """.format(ui=rag_ui_port, chat=rag_chatbot_port, sim=rag_similarity_port,
-               dui=digitize_ui_port, dapi=digitize_port),
+               dui=digitize_ui_port, dapi=digitize_port, graf=grafana_port),
     labels=["quick-links"],
     links=[
         link("http://localhost:{}".format(rag_ui_port), "RAG Chatbot UI"),
@@ -172,6 +182,7 @@ local_resource(
         link("http://localhost:{}".format(rag_similarity_port), "Similarity API (Swagger)"),
         link("http://localhost:{}".format(digitize_ui_port), "Digitize UI"),
         link("http://localhost:{}".format(digitize_port), "Digitize API (Swagger)"),
+        link("http://localhost:{}/d/digitize-service".format(grafana_port), "Digitize dashboard (Grafana)"),
     ],
 )
 
@@ -426,6 +437,67 @@ local_resource(
         initial_delay_secs=3,
         period_secs=5,
         http_get=http_get_action(port=digitize_ui_port, path="/"),
+    ),
+)
+
+# -----------------------------------------------------------------------------
+# Digitize monitoring: Prometheus scrapes rag-digitize /metrics, Grafana shows the dashboard
+# (hack/tilt/monitoring/grafana/dashboards/digitize.json, provisioned read-write: edit it in the UI,
+# then export the JSON back into the repo to keep changes).
+# The containers reach the host-run API through host.containers.internal. Anonymous access is
+# enabled as Admin: local development only.
+# -----------------------------------------------------------------------------
+local_resource(
+    name="rag-prometheus",
+    serve_cmd="""
+        set -e
+        mkdir -p hack/tilt/.data/monitoring
+        cat > hack/tilt/.data/monitoring/prometheus.yml <<EOF
+global:
+  scrape_interval: 5s
+scrape_configs:
+  - job_name: digitize
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["host.containers.internal:{api}"]
+EOF
+        podman rm -f rag-prometheus 2>/dev/null || true
+        podman run --rm --name rag-prometheus \
+            -p {port}:9090 \
+            -v "$(pwd)/hack/tilt/.data/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro,z" \
+            {image}
+    """.format(api=digitize_port, port=prometheus_port, image=prometheus_img),
+    labels=["digitize", "monitoring"],
+    links=[link("http://localhost:{}".format(prometheus_port), "Prometheus")],
+    readiness_probe=probe(
+        initial_delay_secs=3,
+        period_secs=5,
+        http_get=http_get_action(port=prometheus_port, path="/-/ready"),
+    ),
+)
+
+local_resource(
+    name="rag-grafana",
+    serve_cmd="""
+        podman rm -f rag-grafana 2>/dev/null || true
+        podman run --rm --name rag-grafana \
+            -p {port}:3000 \
+            -e PROMETHEUS_PORT={prom} \
+            -e GF_AUTH_ANONYMOUS_ENABLED=true \
+            -e GF_AUTH_ANONYMOUS_ORG_ROLE=Admin \
+            -e GF_AUTH_DISABLE_LOGIN_FORM=true \
+            -e GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/digitize.json \
+            -v "$(pwd)/hack/tilt/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro,z" \
+            -v "$(pwd)/hack/tilt/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:z" \
+            {image}
+    """.format(port=grafana_port, prom=prometheus_port, image=grafana_img),
+    resource_deps=["rag-prometheus"],
+    labels=["digitize", "monitoring"],
+    links=[link("http://localhost:{}/d/digitize-service".format(grafana_port), "Digitize dashboard")],
+    readiness_probe=probe(
+        initial_delay_secs=5,
+        period_secs=5,
+        http_get=http_get_action(port=grafana_port, path="/api/health"),
     ),
 )
 
